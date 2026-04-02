@@ -9,7 +9,7 @@ import {
   ConfirmationNumber, Assignment, TrendingUp, SportsScore,
   Add, CheckCircle, OpenInNew
 } from '@mui/icons-material';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { dashboardAPI } from '../services/api';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -121,7 +121,7 @@ const DashboardPage = () => {
                         <Cell key={i} fill={c} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <RechartsTooltip />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
