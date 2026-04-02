@@ -30,7 +30,7 @@ router.patch('/:id', authenticate, authorize('gestor','diretor'), async (req, re
        state=COALESCE($7,state),is_active=COALESCE($8,is_active),updated_at=NOW() WHERE id=$9`,
       [name,cnpj,email,phone,address,city,state,is_active,req.params.id]
     );
-    res.json({ message: 'Store updated' });
+    res.json({ message: 'Loja atualizada' });
   } catch (err) { next(err); }
 });
 

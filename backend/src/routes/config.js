@@ -32,7 +32,7 @@ router.patch('/block-types/:id', authenticate, authorize('gestor','diretor'), as
        icon=COALESCE($3,icon), description=COALESCE($4,description) WHERE id=$5`,
       [name, slug, icon, description, req.params.id]
     );
-    res.json({ message: 'Block type updated' });
+    res.json({ message: 'Tipo de bloco atualizado' });
   } catch (err) { next(err); }
 });
 
@@ -53,7 +53,7 @@ router.patch('/:key', authenticate, authorize('gestor','diretor'), async (req, r
        ON CONFLICT (key) DO UPDATE SET value=$1, updated_by=$2, updated_at=NOW()`,
       [value, req.user.id, req.params.key]
     );
-    res.json({ message: 'Config updated' });
+    res.json({ message: 'Configuração salva' });
   } catch (err) { next(err); }
 });
 

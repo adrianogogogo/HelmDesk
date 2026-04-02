@@ -78,7 +78,7 @@ router.patch('/:id/blocks/:blockId', ticketAccess, async (req, res, next) => {
       'UPDATE ticket_blocks SET content = $1, updated_by = $2, updated_at = NOW() WHERE id = $3 AND ticket_id = $4',
       [JSON.stringify(content), req.user.id, blockId, id]
     );
-    res.json({ message: 'Block updated' });
+    res.json({ message: 'Bloco atualizado' });
   } catch (err) { next(err); }
 });
 

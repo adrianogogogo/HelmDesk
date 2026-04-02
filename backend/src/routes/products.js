@@ -52,7 +52,7 @@ router.patch('/:id', authenticate, authorize('gestor', 'diretor'), async (req, r
         system_id=COALESCE($8,system_id), korp_id=COALESCE($9,korp_id),
         is_active=COALESCE($10,is_active), updated_at=NOW() WHERE id=$11
     `, [name, description, brand_id || null, product_type_id || null, sku, model, year || null, system_id, korp_id, is_active, req.params.id]);
-    res.json({ message: 'Product updated' });
+    res.json({ message: 'Produto atualizado' });
   } catch (err) { next(err); }
 });
 

@@ -25,7 +25,7 @@ const MainLayout = () => {
   }, [user, dispatch]);
 
   // Sidebar usa position:fixed — o conteúdo principal precisa
-  // de padding-left igual à largura atual da sidebar para não ficar embaixo dela
+  // de uma margem esquerda igual à largura atual da sidebar para não ficar embaixo dela
   const sidebarWidth = sidebarOpen ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED;
 
   return (
@@ -34,18 +34,25 @@ const MainLayout = () => {
       {/* Sidebar: position fixed, fora do fluxo normal do DOM */}
       <Sidebar />
 
-      {/* Conteúdo principal: deslocado via paddingLeft (não margin) */}
+      {/* Espaçador invisível que reserva o espaço da sidebar no fluxo flex */}
+      <Box
+        sx={{
+          width: sidebarWidth,
+          flexShrink: 0,
+          transition: 'width 0.25s ease',
+        }}
+      />
+
+      {/* Conteúdo principal: ocupa o espaço restante após o espaçador */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          pl: `${sidebarWidth}px`,       // empurra para direita da sidebar
-          transition: 'padding-left 0.25s ease',
           display: 'flex',
           flexDirection: 'column',
           minHeight: '100vh',
-          width: '100%',
-          boxSizing: 'border-box',
+          minWidth: 0,           // previne overflow horizontal
+          overflow: 'hidden',
         }}
       >
         <TopBar />
