@@ -16,7 +16,7 @@ const getTasks = async (req, res, next) => {
     
     // Atendentes veem suas próprias tarefas + as vinculadas a tickets
     if (!internalRoles.includes(user.role)) {
-      return res.status(403).json({ error: 'Tasks are for internal users only' });
+      return res.status(403).json({ error: 'Tarefas são para usuários internos apenas' });
     }
     
     if (assigned_to) { params.push(assigned_to); where.push(`tk.assigned_to = $${params.length}`); }
@@ -83,7 +83,7 @@ const createTask = async (req, res, next) => {
     const user = req.user;
     const { title, description, ticket_id, assigned_to, priority, due_date, department_id = 1 } = req.body;
 
-    if (!title) return res.status(400).json({ error: 'Title required' });
+    if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
 
     const { rows } = await pool.query(`
       INSERT INTO tasks (title, description, ticket_id, assigned_to, created_by, priority, due_date, department_id, status)
@@ -123,7 +123,7 @@ const updateTask = async (req, res, next) => {
     const user = req.user;
 
     const { rows: current } = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
-    if (!current.length) return res.status(404).json({ error: 'Task not found' });
+    if (!current.length) return res.status(404).json({ error: 'Tarefa não encontrada' });
     const task = current[0];
 
     const completed_at = status === 'concluida' && task.status !== 'concluida' ? 'NOW()' : 'completed_at';
@@ -158,7 +158,7 @@ const updateTask = async (req, res, next) => {
       }
     }
 
-    res.json({ message: 'Task updated' });
+    res.json({ message: 'Tarefa atualizada' });
   } catch (err) {
     next(err);
   }
@@ -168,7 +168,7 @@ const updateTask = async (req, res, next) => {
 const deleteTask = async (req, res, next) => {
   try {
     await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
-    res.json({ message: 'Task deleted' });
+    res.json({ message: 'Tarefa excluída' });
   } catch (err) {
     next(err);
   }
@@ -186,10 +186,10 @@ const getWhatsAppLink = async (req, res, next) => {
       WHERE tk.id = $1
     `, [id]);
 
-    if (!rows.length) return res.status(404).json({ error: 'Task not found' });
+    if (!rows.length) return res.status(404).json({ error: 'Tarefa não encontrada' });
     const task = rows[0];
 
-    if (!task.phone) return res.status(400).json({ error: 'Assigned user has no phone number' });
+    if (!task.phone) return res.status(400).json({ error: 'Usuário atribuído não tem telefone cadastrado' });
 
     const appUrl = process.env.APP_URL || 'http://177.153.39.134:3000';
     const ticketLink = task.ticket_id

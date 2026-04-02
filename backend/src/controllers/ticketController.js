@@ -107,7 +107,7 @@ const getTicketById = async (req, res, next) => {
       WHERE t.id = $1
     `, [id]);
 
-    if (!rows.length) return res.status(404).json({ error: 'Ticket not found' });
+    if (!rows.length) return res.status(404).json({ error: 'Ticket não encontrado' });
     const ticket = rows[0];
 
     // Products
@@ -190,7 +190,7 @@ const createTicket = async (req, res, next) => {
       products = [], assigned_to
     } = req.body;
 
-    if (!title) return res.status(400).json({ error: 'Title is required' });
+    if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
 
     const ballOwner = assigned_to || user.id;
 
@@ -249,7 +249,7 @@ const updateStatus = async (req, res, next) => {
     const { rows: ticketRows } = await pool.query(
       'SELECT * FROM tickets WHERE id = $1', [id]
     );
-    if (!ticketRows.length) return res.status(404).json({ error: 'Ticket not found' });
+    if (!ticketRows.length) return res.status(404).json({ error: 'Ticket não encontrado' });
     const ticket = ticketRows[0];
 
     const oldStatusId = ticket.status_id;
@@ -293,7 +293,7 @@ const updateStatus = async (req, res, next) => {
     const io = req.app.get('io');
     if (io) io.emit('ticket_updated', { ticketId: id });
 
-    res.json({ message: 'Status updated', ticket_id: id });
+    res.json({ message: 'Status atualizado', ticket_id: id });
   } catch (err) {
     next(err);
   }
@@ -306,7 +306,7 @@ const updateTicket = async (req, res, next) => {
     const user = req.user;
     const allowedRoles = ['atendente', 'gestor', 'diretor'];
     if (!allowedRoles.includes(user.role)) {
-      return res.status(403).json({ error: 'Not authorized to edit tickets' });
+      return res.status(403).json({ error: 'Sem permissão para editar tickets' });
     }
 
     const fields = req.body;
@@ -324,7 +324,7 @@ const updateTicket = async (req, res, next) => {
       }
     }
 
-    if (!setClauses.length) return res.status(400).json({ error: 'No fields to update' });
+    if (!setClauses.length) return res.status(400).json({ error: 'Nenhum campo para atualizar' });
 
     params.push(id);
     await pool.query(
@@ -339,7 +339,7 @@ const updateTicket = async (req, res, next) => {
 
     await registerGoal(user.id, id, null, 'field_updated');
 
-    res.json({ message: 'Ticket updated' });
+    res.json({ message: 'Ticket atualizado' });
   } catch (err) {
     next(err);
   }
@@ -372,7 +372,7 @@ const removeProduct = async (req, res, next) => {
   try {
     const { id, productId } = req.params;
     await pool.query('DELETE FROM ticket_products WHERE id = $1 AND ticket_id = $2', [productId, id]);
-    res.json({ message: 'Product removed' });
+    res.json({ message: 'Produto removido' });
   } catch (err) {
     next(err);
   }
@@ -429,7 +429,7 @@ const approveSolution = async (req, res, next) => {
     const user = req.user;
 
     if (!['gestor', 'diretor'].includes(user.role)) {
-      return res.status(403).json({ error: 'Only managers can approve solutions' });
+      return res.status(403).json({ error: 'Apenas gestores podem aprovar soluções' });
     }
 
     const status = approved ? 'aprovado' : 'reprovado';
@@ -446,7 +446,7 @@ const approveSolution = async (req, res, next) => {
 
     await registerGoal(user.id, id, null, status);
 
-    res.json({ message: `Solution ${status}` });
+    res.json({ message: `Solução ${status}` });
   } catch (err) {
     next(err);
   }
@@ -457,7 +457,7 @@ const anonymizeTicket = async (req, res, next) => {
   try {
     const { id } = req.params;
     if (!['gestor', 'diretor'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden' });
+      return res.status(403).json({ error: 'Acesso negado' });
     }
     await pool.query(`
       UPDATE tickets SET
@@ -474,7 +474,7 @@ const anonymizeTicket = async (req, res, next) => {
       INSERT INTO audit_logs (user_id, action, entity_type, entity_id)
       VALUES ($1,'lgpd_anonymize','ticket',$2)
     `, [req.user.id, id]);
-    res.json({ message: 'Ticket anonymized (LGPD)' });
+    res.json({ message: 'Ticket anonimizado (LGPD)' });
   } catch (err) {
     next(err);
   }

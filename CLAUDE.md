@@ -398,6 +398,12 @@ bash scripts/deploy.sh
 - Scripts de deploy VPS
 - Build frontend sem warnings (ESLint 0 erros)
 - VPS com PM2 rodando (backend porta 5000, frontend porta 3000)
+- Login funcionando (JWT, audit_logs não-crítico)
+- Layout sidebar corrigido (Box fixo, sem double margin)
+- Todas as mensagens do backend em pt-BR
+- ClientsPage usando endpoint `/api/clients` correto (com contagem de tickets)
+- NewTicketPage com validação, erro feedback e limite de 3 produtos
+- TicketDetailPage com dialog de criação de tarefa na aba Tarefas
 
 ### 🔄 Em andamento / Pendente
 - Validação funcional end-to-end (login, tickets, fluxos)
@@ -413,6 +419,25 @@ bash scripts/deploy.sh
 ### Login 500 (corrigido em 2026-04-02)
 - **Causa:** `audit_logs` INSERT bloqueava o login em caso de falha; `JWT_SECRET` podia ser undefined
 - **Correção:** `audit_logs` agora em try/catch separado (não-crítico); `ecosystem.config.js` inclui todas as env vars explícitas; fallback para JWT_SECRET hardcoded
+
+### Layout com espaço em branco na sidebar (corrigido em 2026-04-02)
+- **Causa:** MUI `Drawer variant="permanent"` cria dois elementos DOM: wrapper flex (com width) + Paper (position:fixed); o wrapper consumia espaço mesmo com position:fixed no Paper
+- **Correção:** Substituído por `<Box sx={{ position: 'fixed', ... }}>` sem o Drawer MUI; MainLayout usa `pl: sidebarWidth px` para deslocar o conteúdo
+
+### Mensagens em inglês no backend (corrigido em 2026-04-02)
+- **Causa:** Controllers/routes com mensagens de erro em inglês
+- **Correção:** Todas as mensagens traduzidas para pt-BR em: `ticketController.js`, `taskController.js`, `chatController.js`, `routes/public.js`, `routes/users.js`
+
+---
+
+## 📋 Changelog de Correções
+
+| Data | Commit | Descrição |
+|------|--------|-----------|
+| 2026-04-02 | `603f0f1` | Corrigir layout sidebar (Box fixo sem Drawer MUI) |
+| 2026-04-02 | `0bed4b3` | Corrigir login 500 + traduzir mensagens pt-BR |
+| 2026-04-02 | `534fba0` | Corrigir todos os warnings ESLint (0 warnings) |
+| 2026-04-02 | `e6569e5` | Renomear Tooltip do recharts para RechartsTooltip |
 
 ---
 

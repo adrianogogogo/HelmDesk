@@ -38,7 +38,7 @@ const getMessages = async (req, res, next) => {
       'SELECT id FROM chat_room_members WHERE room_id = $1 AND user_id = $2',
       [roomId, req.user.id]
     );
-    if (!member.length) return res.status(403).json({ error: 'Not a member of this room' });
+    if (!member.length) return res.status(403).json({ error: 'Você não é membro desta sala' });
 
     const { rows } = await pool.query(`
       SELECT cm.*, u.name as sender_name, u.role as sender_role, u.avatar_url as sender_avatar

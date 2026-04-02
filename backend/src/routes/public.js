@@ -13,7 +13,7 @@ router.post('/tickets', async (req, res, next) => {
     } = req.body;
 
     if (!title || !client_name || !client_email) {
-      return res.status(400).json({ error: 'Title, name and email are required' });
+      return res.status(400).json({ error: 'Título, nome e e-mail são obrigatórios' });
     }
 
     // Create system user placeholder to reference as created_by
@@ -78,7 +78,7 @@ router.get('/tickets/:token', async (req, res, next) => {
       WHERE t.public_token = $1 AND t.is_anonymized = FALSE
     `, [token]);
 
-    if (!rows.length) return res.status(404).json({ error: 'Ticket not found' });
+    if (!rows.length) return res.status(404).json({ error: 'Ticket não encontrado' });
 
     // Public history (non-internal only)
     const { rows: history } = await pool.query(`

@@ -32,7 +32,7 @@ router.patch('/:id', authenticate, authorize('gestor', 'diretor'), async (req, r
         store_id = COALESCE($7, store_id), updated_at = NOW()
       WHERE id = $8
     `, [name, email, role, phone, is_active, department_id, store_id || null, id]);
-    res.json({ message: 'User updated' });
+    res.json({ message: 'Usuário atualizado' });
   } catch (err) { next(err); }
 });
 
@@ -49,7 +49,7 @@ router.delete('/:id', authenticate, authorize('diretor'), async (req, res, next)
     `, [id]);
     await pool.query(`INSERT INTO audit_logs (user_id, action, entity_type, entity_id) VALUES ($1,'lgpd_anonymize','user',$2)`,
       [req.user.id, id]);
-    res.json({ message: 'User anonymized (LGPD)' });
+    res.json({ message: 'Usuário anonimizado (LGPD)' });
   } catch (err) { next(err); }
 });
 

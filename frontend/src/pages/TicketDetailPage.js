@@ -159,6 +159,80 @@ const StatusUpdateDialog = ({ open, onClose, ticket, onSuccess }) => {
   );
 };
 
+// Task Creation Dialog
+const TaskDialog = ({ open, onClose, ticketId, users, onSuccess }) => {
+  const { user } = useSelector(s => s.auth);
+  const [form, setForm] = useState({ title: '', description: '', assigned_to: '', priority: 'normal', due_date: '' });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) { toast.error('Título é obrigatório'); return; }
+    setSaving(true);
+    try {
+      await taskAPI.create({ ...form, ticket_id: ticketId, assigned_to: form.assigned_to || user.id, due_date: form.due_date || null });
+      toast.success('Tarefa criada! ⚽');
+      onSuccess();
+      onClose();
+      setForm({ title: '', description: '', assigned_to: '', priority: 'normal', due_date: '' });
+    } catch {
+      toast.error('Erro ao criar tarefa');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700 }}>Nova Tarefa</DialogTitle>
+      <DialogContent>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+          <Grid item xs={12}>
+            <TextField fullWidth size="small" label="Título *" value={form.title}
+              onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField fullWidth multiline rows={2} size="small" label="Descrição" value={form.description}
+              onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+          </Grid>
+          <Grid item xs={6}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Atribuir a</InputLabel>
+              <Select value={form.assigned_to} label="Atribuir a"
+                onChange={e => setForm(p => ({ ...p, assigned_to: e.target.value }))}>
+                <MenuItem value="">— Eu mesmo —</MenuItem>
+                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.name} ({u.role})</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={6}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Prioridade</InputLabel>
+              <Select value={form.priority} label="Prioridade"
+                onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
+                <MenuItem value="low">Baixa</MenuItem>
+                <MenuItem value="normal">Normal</MenuItem>
+                <MenuItem value="high">Alta</MenuItem>
+                <MenuItem value="urgent">Urgente</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12}>
+            <TextField fullWidth size="small" label="Data limite" type="date"
+              InputLabelProps={{ shrink: true }} value={form.due_date}
+              onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button variant="contained" onClick={handleSubmit} disabled={saving}>
+          {saving ? <CircularProgress size={18} /> : 'Criar Tarefa'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 // Main Component
 const TicketDetailPage = () => {
   const { id } = useParams();
@@ -168,7 +242,9 @@ const TicketDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
   const [statusDialog, setStatusDialog] = useState(false);
+  const [taskDialog, setTaskDialog] = useState(false);
   const [fileInput, setFileInput] = useState(null);
+  const [internalUsers, setInternalUsers] = useState([]);
 
   const internalRoles = ['atendente', 'gestor', 'diretor'];
 
@@ -183,6 +259,13 @@ const TicketDetailPage = () => {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadTicket(); }, [id]);
+
+  useEffect(() => {
+    if (user && internalRoles.includes(user.role)) {
+      userAPI.list().then(r => setInternalUsers(r.data || [])).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFileUpload = async (e) => {
     const files = e.target.files;
@@ -424,7 +507,11 @@ const TicketDetailPage = () => {
             {tab === 2 && (
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                  <Button size="small" variant="outlined" startIcon={<Add />}>Nova Tarefa</Button>
+                  {internalRoles.includes(user?.role) && (
+                    <Button size="small" variant="outlined" startIcon={<Add />} onClick={() => setTaskDialog(true)}>
+                      Nova Tarefa
+                    </Button>
+                  )}
                 </Box>
                 {ticket.tasks?.map(task => (
                   <Paper key={task.id} variant="outlined" sx={{ p: 2, mb: 1.5, borderRadius: 2 }}>
@@ -614,6 +701,15 @@ const TicketDetailPage = () => {
         open={statusDialog}
         onClose={() => setStatusDialog(false)}
         ticket={ticket}
+        onSuccess={loadTicket}
+      />
+
+      {/* Task Dialog */}
+      <TaskDialog
+        open={taskDialog}
+        onClose={() => setTaskDialog(false)}
+        ticketId={id}
+        users={internalUsers}
         onSuccess={loadTicket}
       />
     </Box>
