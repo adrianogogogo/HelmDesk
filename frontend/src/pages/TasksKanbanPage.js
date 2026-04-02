@@ -185,7 +185,7 @@ const TasksKanbanPage = () => {
   const handleWhatsApp = async (task) => {
     try {
       const { data } = await taskAPI.whatsapp(task.id);
-      window.open(data.url, '_blank');
+      window.open(data.whatsapp_url, '_blank');
     } catch {
       const msg = encodeURIComponent(`Olá! Você tem uma tarefa pendente: *${task.title}*. Acesse o sistema: http://177.153.39.134:3000`);
       window.open(`https://wa.me/?text=${msg}`, '_blank');

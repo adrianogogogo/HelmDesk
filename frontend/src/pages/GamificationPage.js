@@ -8,7 +8,7 @@ import { SportsScore } from '@mui/icons-material';
 import { gamificationAPI } from '../services/api';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 const COLORS = ['#FFD700', '#C0C0C0', '#CD7F32', '#1565C0', '#4CAF50', '#FF9800', '#9C27B0', '#F44336', '#00BCD4', '#607D8B'];
@@ -182,7 +182,7 @@ const GamificationPage = () => {
                     <BarChart data={ranking.map(p => ({ name: p.name?.split(' ')[0], gols: parseInt(p.gols || 0) }))}>
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(v) => [`${v} ⚽`, 'Gols']} />
+                      <RechartsTooltip formatter={(v) => [`${v} ⚽`, 'Gols']} />
                       <Bar dataKey="gols" radius={[4, 4, 0, 0]}>
                         {ranking.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Bar>
