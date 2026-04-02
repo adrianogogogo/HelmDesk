@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import {
   Box, Typography, Card, CardContent, Tabs, Tab, TextField, Button,
   Table, TableHead, TableRow, TableCell, TableBody, Chip, IconButton,
-  Dialog, DialogTitle, DialogContent, DialogActions, Alert, Switch,
-  FormControlLabel, Tooltip, Divider, List, ListItem, ListItemText,
+  Dialog, DialogTitle, DialogContent, DialogActions, Alert,
+  Tooltip, Divider, List, ListItem, ListItemText,
   ListItemSecondaryAction
 } from '@mui/material';
 import { Save, Add, Edit, Settings, Email, Tune } from '@mui/icons-material';
@@ -31,7 +31,6 @@ const ConfigPage = () => {
   const [tab, setTab] = useState(0);
   const [configs, setConfigs] = useState({});
   const [blockTypes, setBlockTypes] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [blockDialog, setBlockDialog] = useState(false);
   const [blockForm, setBlockForm] = useState({ name: '', slug: '', icon: '', description: '' });
   const [editingBlock, setEditingBlock] = useState(null);

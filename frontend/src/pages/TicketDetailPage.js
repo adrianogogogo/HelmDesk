@@ -4,14 +4,14 @@ import {
   Box, Card, CardContent, Typography, Button, Chip, Tabs, Tab,
   Grid, Divider, CircularProgress, Avatar, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  FormControl, InputLabel, Select, MenuItem, LinearProgress,
-  Table, TableBody, TableCell, TableHead, TableRow, Alert,
+  FormControl, InputLabel, Select, MenuItem,
+  Alert,
   List, ListItem, ListItemText, ListItemAvatar, Paper
 } from '@mui/material';
 import {
-  Edit, AttachFile, Assignment, History, ArrowBack,
-  SportsScore, WhatsApp, CheckCircle, Cancel, Add,
-  Upload, Inventory, Build, LocalShipping, Payment
+  AttachFile, ArrowBack,
+  WhatsApp, CheckCircle, Cancel, Add,
+  Upload, Inventory
 } from '@mui/icons-material';
 import { ticketAPI, userAPI, taskAPI } from '../services/api';
 import { useSelector } from 'react-redux';
@@ -181,6 +181,7 @@ const TicketDetailPage = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadTicket(); }, [id]);
 
   const handleFileUpload = async (e) => {

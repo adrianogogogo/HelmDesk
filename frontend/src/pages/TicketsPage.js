@@ -5,11 +5,11 @@ import {
   Box, Card, CardContent, Typography, Button, TextField, Chip,
   Table, TableBody, TableCell, TableHead, TableRow, TablePagination,
   Select, MenuItem, FormControl, InputLabel, Grid, IconButton,
-  Tooltip, CircularProgress, Avatar
+  Tooltip, CircularProgress
 } from '@mui/material';
-import { Add, FilterList, Refresh, OpenInNew, SportsScore } from '@mui/icons-material';
+import { Add, FilterList, Refresh, OpenInNew } from '@mui/icons-material';
 import { ticketAPI, brandAPI } from '../services/api';
-import { setTickets, setFilters } from '../store/slices/ticketSlice';
+import { setTickets } from '../store/slices/ticketSlice';
 import { format } from 'date-fns';
 
 const PRIORITIES = { urgent: { label: 'Urgente', color: '#F44336' }, high: { label: 'Alta', color: '#FF9800' }, normal: { label: 'Normal', color: '#2196F3' }, low: { label: 'Baixa', color: '#9E9E9E' } };
@@ -17,7 +17,7 @@ const PRIORITIES = { urgent: { label: 'Urgente', color: '#F44336' }, high: { lab
 const TicketsPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { list, total, filters } = useSelector(s => s.tickets);
+  const { list, total } = useSelector(s => s.tickets);
   const { user } = useSelector(s => s.auth);
 
   const [loading, setLoading] = useState(false);
@@ -26,8 +26,6 @@ const TicketsPage = () => {
   const [statuses, setStatuses] = useState([]);
   const [brands, setBrands] = useState([]);
   const [localFilters, setLocalFilters] = useState({ status_id: '', brand_id: '', priority: '', search: '' });
-
-  const internalRoles = ['atendente', 'gestor', 'diretor'];
 
   const fetchData = async () => {
     setLoading(true);
@@ -41,6 +39,7 @@ const TicketsPage = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, [page, rowsPerPage]);
 
   useEffect(() => {

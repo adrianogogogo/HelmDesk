@@ -4,7 +4,7 @@ import {
   FormControl, InputLabel, Select, MenuItem, Chip, Alert,
   CircularProgress, Divider, Paper
 } from '@mui/material';
-import { Add, AttachFile } from '@mui/icons-material';
+import { Add } from '@mui/icons-material';
 import { publicAPI } from '../services/api';
 import toast from 'react-hot-toast';
 

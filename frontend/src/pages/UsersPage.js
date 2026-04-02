@@ -5,7 +5,7 @@ import {
   TextField, FormControl, InputLabel, Select, MenuItem, Switch, FormControlLabel,
   Tooltip, Avatar, InputAdornment, Alert
 } from '@mui/material';
-import { Add, Edit, Block, Search, PersonOff } from '@mui/icons-material';
+import { Add, Edit, Search, PersonOff } from '@mui/icons-material';
 import api, { userAPI, storeAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -27,22 +27,18 @@ const UsersPage = () => {
   const [users, setUsers] = useState([]);
   const [stores, setStores] = useState([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
   const [dialog, setDialog] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
 
   const load = async () => {
-    setLoading(true);
     try {
       const [usersRes, storesRes] = await Promise.all([userAPI.list(), storeAPI.list()]);
       setUsers(usersRes.data);
       setStores(storesRes.data);
     } catch (e) {
       toast.error('Erro ao carregar usuários');
-    } finally {
-      setLoading(false);
     }
   };
 

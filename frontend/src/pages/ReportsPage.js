@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Card, CardContent, Grid, Button, TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress, Table, TableHead, TableRow, TableCell, TableBody, Chip } from '@mui/material';
-import { BarChart, Download } from '@mui/icons-material';
+import { Download } from '@mui/icons-material';
 import { reportAPI, brandAPI, ticketAPI } from '../services/api';
 import { format } from 'date-fns';
 

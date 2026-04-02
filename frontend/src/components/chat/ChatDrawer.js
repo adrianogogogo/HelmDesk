@@ -5,7 +5,7 @@ import {
   ListItemText, Avatar, Divider, TextField, Button, Badge, Chip, Paper
 } from '@mui/material';
 import { Close, Send, ArrowBack } from '@mui/icons-material';
-import { setChatOpen, setActiveRoom, setMessages, addMessage, setRooms, setUsers } from '../../store/slices/chatSlice';
+import { setChatOpen, setActiveRoom, setMessages, setRooms, setUsers } from '../../store/slices/chatSlice';
 import { chatAPI } from '../../services/api';
 import { joinRoom, sendMessage, sendTyping, sendStopTyping, getSocket } from '../../services/socket';
 import { format } from 'date-fns';

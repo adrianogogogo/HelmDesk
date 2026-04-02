@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, Card, CardContent, Grid, TextField, Button, FormControl, InputLabel, Select, MenuItem, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { ticketAPI, brandAPI, issueAPI, storeAPI, productAPI } from '../services/api';
+import { ticketAPI, brandAPI, issueAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 const NewTicketPage = () => {

@@ -1,18 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, InputBase, Paper, List, ListItem, ListItemText,
+  Box, InputBase, Paper, List, ListItem,
   Typography, Chip, CircularProgress, Divider
 } from '@mui/material';
 import { Search, ConfirmationNumber } from '@mui/icons-material';
 import { searchAPI } from '../../services/api';
-
-const STATUS_COLORS = {
-  'novo': '#2196F3', 'em-triagem': '#FF9800', 'aguardando-informacoes': '#FFC107',
-  'em-analise': '#9C27B0', 'solucao-proposta': '#00BCD4', 'em-execucao': '#FF5722',
-  'logistica-envio': '#795548', 'aguardando-confirmacao': '#607D8B',
-  'resolvido': '#4CAF50', 'fechado': '#9E9E9E'
-};
 
 let debounceTimer;
 

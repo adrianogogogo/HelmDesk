@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   AppBar, Toolbar, IconButton, Badge, Box, Typography, Avatar,
-  Menu, MenuItem, Divider, Tooltip, InputBase, Paper
+  Menu, MenuItem, Divider, Tooltip
 } from '@mui/material';
 import {
-  Notifications, Chat, Brightness4, Brightness7, Search,
+  Notifications, Chat, Brightness4, Brightness7,
   Logout, Person, Lock
 } from '@mui/icons-material';
 import { logout } from '../../store/slices/authSlice';
-import { toggleDarkMode, setSearchOpen } from '../../store/slices/uiSlice';
+import { toggleDarkMode } from '../../store/slices/uiSlice';
 import { setChatOpen } from '../../store/slices/chatSlice';
 import SearchBar from '../search/SearchBar';
 

@@ -2,17 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Grid, Card, CardContent, Typography, Box, Button, Chip,
-  Avatar, LinearProgress, Divider, Table, TableBody,
-  TableCell, TableHead, TableRow, CircularProgress, Paper,
-  List, ListItem, ListItemAvatar, ListItemText
+  Avatar, LinearProgress, Table, TableBody,
+  TableCell, TableHead, TableRow, CircularProgress
 } from '@mui/material';
 import {
   ConfirmationNumber, Assignment, TrendingUp, SportsScore,
-  Add, CheckCircle, OpenInNew, EmojiEvents
+  Add, CheckCircle, OpenInNew
 } from '@mui/icons-material';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { dashboardAPI } from '../services/api';
-import { useSelector } from 'react-redux';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 

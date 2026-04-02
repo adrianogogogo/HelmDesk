@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Chip, CircularProgress,
-  Alert, Stepper, Step, StepLabel, Paper, List, ListItem, ListItemText
+  Alert, Paper, List, ListItem, ListItemText
 } from '@mui/material';
 import { publicAPI } from '../services/api';
 import { format } from 'date-fns';

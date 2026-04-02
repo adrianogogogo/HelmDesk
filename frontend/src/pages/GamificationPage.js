@@ -4,7 +4,7 @@ import {
   Table, TableHead, TableRow, TableCell, TableBody, CircularProgress,
   Select, MenuItem, FormControl, InputLabel
 } from '@mui/material';
-import { EmojiEvents, SportsScore } from '@mui/icons-material';
+import { SportsScore } from '@mui/icons-material';
 import { gamificationAPI } from '../services/api';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -30,6 +30,7 @@ const GamificationPage = () => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [month, year]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({

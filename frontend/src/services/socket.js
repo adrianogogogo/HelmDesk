@@ -1,7 +1,6 @@
 import { io } from 'socket.io-client';
-import { addMessage, updateUserOnline, setRooms } from '../store/slices/chatSlice';
+import { addMessage, updateUserOnline } from '../store/slices/chatSlice';
 import { setNotifications } from '../store/slices/notificationSlice';
-import { updateTicketInList } from '../store/slices/ticketSlice';
 import { notificationAPI } from './api';
 
 let socket = null;

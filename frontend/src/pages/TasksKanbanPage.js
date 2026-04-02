@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Box, Typography, Button, Card, CardContent, Chip,
+  Box, Typography, Button, Card, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, FormControl, InputLabel,
   IconButton, Tooltip, Avatar, Grid, Paper
@@ -116,6 +116,7 @@ const TasksKanbanPage = () => {
     } catch { }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadKanban();
     userAPI.list().then(r => setUsers(r.data.filter(u => ['atendente', 'gestor', 'diretor'].includes(u.role)))).catch(() => {});
@@ -127,10 +128,8 @@ const TasksKanbanPage = () => {
 
     // Find source column
     let sourceCol = null;
-    let task = null;
     for (const col of COLUMNS) {
-      const found = kanban[col.key]?.find(t => t.id === active.id);
-      if (found) { sourceCol = col.key; task = found; break; }
+      if (kanban[col.key]?.find(t => t.id === active.id)) { sourceCol = col.key; break; }
     }
 
     // Find dest column (over could be a column key or task id)

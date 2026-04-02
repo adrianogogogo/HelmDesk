@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { useSelector } from 'react-redux';
@@ -21,7 +21,6 @@ import ReportsPage from './pages/ReportsPage';
 import ConfigPage from './pages/ConfigPage';
 import SearchPage from './pages/SearchPage';
 import GamificationPage from './pages/GamificationPage';
-import PublicTicketPage from './pages/PublicTicketPage';
 import OpenTicketPage from './pages/OpenTicketPage';
 import TrackTicketPage from './pages/TrackTicketPage';
 import UsersPage from './pages/UsersPage';
