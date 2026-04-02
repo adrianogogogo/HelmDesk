@@ -1,0 +1,10 @@
+const express = require('express');
+const router = express.Router();
+const { authenticate, internalOnly } = require('../middlewares/auth');
+const { getRooms, getMessages, createOrFindRoom, getChatUsers } = require('../controllers/chatController');
+router.use(authenticate, internalOnly);
+router.get('/users', getChatUsers);
+router.get('/rooms', getRooms);
+router.post('/rooms', createOrFindRoom);
+router.get('/rooms/:roomId/messages', getMessages);
+module.exports = router;

@@ -1,0 +1,113 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const http = require('http');
+const { Server } = require('socket.io');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+
+// ============================================================
+// Socket.IO (Chat interno)
+// ============================================================
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://177.153.39.134:3000',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Make io accessible in routes
+app.set('io', io);
+
+// ============================================================
+// Middleware
+// ============================================================
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL || 'http://177.153.39.134:3000',
+    'http://localhost:3000',
+    'http://177.153.39.134:3000'
+  ],
+  credentials: true
+}));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(morgan('dev'));
+
+// Static uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use('/api/', apiLimiter);
+
+// ============================================================
+// Routes
+// ============================================================
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/departments', require('./routes/departments'));
+app.use('/api/tickets', require('./routes/tickets'));
+app.use('/api/tasks', require('./routes/tasks'));
+app.use('/api/products', require('./routes/products'));
+app.use('/api/stores', require('./routes/stores'));
+app.use('/api/clients', require('./routes/clients'));
+app.use('/api/brands', require('./routes/brands'));
+app.use('/api/issue-types', require('./routes/issueTypes'));
+app.use('/api/search', require('./routes/search'));
+app.use('/api/chat', require('./routes/chat'));
+app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/reports', require('./routes/reports'));
+app.use('/api/config', require('./routes/config'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/gamification', require('./routes/gamification'));
+app.use('/api/public', require('./routes/public'));
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    service: 'RelmDesk API v1',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ============================================================
+// Socket.IO - Chat interno
+// ============================================================
+const socketService = require('./services/socketService');
+socketService.init(io);
+
+// ============================================================
+// Error handler
+// ============================================================
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err.stack);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// ============================================================
+// Start
+// ============================================================
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 RelmDesk API running on port ${PORT}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 CORS origin: ${process.env.FRONTEND_URL}`);
+});
+
+module.exports = { app, server, io };
