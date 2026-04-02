@@ -58,6 +58,11 @@ const Sidebar = ({ width }) => {
           color: 'white',
           borderRight: 'none',
           boxShadow: '4px 0 20px rgba(0,0,0,0.15)',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          height: '100vh',
+          zIndex: 1200,
         },
       }}
     >
