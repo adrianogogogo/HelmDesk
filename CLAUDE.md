@@ -400,7 +400,8 @@ bash scripts/deploy.sh
 - VPS com PM2 rodando (backend porta 5000, frontend porta 3000)
 - Login funcionando (JWT, audit_logs não-crítico)
 - Layout sidebar corrigido (Box fixo, sem double margin)
-- Todas as mensagens do backend em pt-BR
+- Layout MainLayout corrigido (espaçador flex substitui paddingLeft — TopBar não cobre sidebar)
+- Todas as mensagens do backend em pt-BR (incluindo config, notifications, products, stores, tickets)
 - ClientsPage usando endpoint `/api/clients` correto (com contagem de tickets)
 - NewTicketPage com validação, erro feedback e limite de 3 produtos
 - TicketDetailPage com dialog de criação de tarefa na aba Tarefas
@@ -424,6 +425,10 @@ bash scripts/deploy.sh
 - **Causa:** MUI `Drawer variant="permanent"` cria dois elementos DOM: wrapper flex (com width) + Paper (position:fixed); o wrapper consumia espaço mesmo com position:fixed no Paper
 - **Correção:** Substituído por `<Box sx={{ position: 'fixed', ... }}>` sem o Drawer MUI; MainLayout usa `pl: sidebarWidth px` para deslocar o conteúdo
 
+### Layout quebrado no lado esquerdo — TopBar sobrepondo sidebar (corrigido em 2026-04-02)
+- **Causa:** `MainLayout` usava `paddingLeft: sidebarWidth` no Box principal; como a Sidebar tem `position: fixed`, o AppBar com `position: sticky` se estendia para cobrir o espaço da sidebar
+- **Correção:** Substituído `paddingLeft` por um **espaçador flexível** (`<Box>` invisível com `width: sidebarWidth, flexShrink: 0`) que reserva o espaço da sidebar no fluxo flex, garantindo que TopBar e conteúdo fiquem corretamente à direita
+
 ### Mensagens em inglês no backend (corrigido em 2026-04-02)
 - **Causa:** Controllers/routes com mensagens de erro em inglês
 - **Correção:** Todas as mensagens traduzidas para pt-BR em: `ticketController.js`, `taskController.js`, `chatController.js`, `routes/public.js`, `routes/users.js`
@@ -438,6 +443,8 @@ bash scripts/deploy.sh
 | 2026-04-02 | `0bed4b3` | Corrigir login 500 + traduzir mensagens pt-BR |
 | 2026-04-02 | `534fba0` | Corrigir todos os warnings ESLint (0 warnings) |
 | 2026-04-02 | `e6569e5` | Renomear Tooltip do recharts para RechartsTooltip |
+| 2026-04-02 | `31ffdab` | Melhorias UX (ClientsPage, NewTicketPage, TicketDetailPage) + pt-BR |
+| 2026-04-02 | `dd5a25e` | Corrigir layout lado esquerdo quebrado (espaçador flex + pt-BR restante) |
 
 ---
 
