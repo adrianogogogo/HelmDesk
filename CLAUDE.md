@@ -5,6 +5,25 @@
 
 ---
 
+## 🌐 REGRA DE IDIOMA — OBRIGATÓRIA
+
+**TODO o sistema é em PORTUGUÊS BRASILEIRO (pt-BR).**
+
+- Todas as mensagens de erro da API → português
+- Todos os textos de UI → português
+- Todos os comentários no código → português
+- Todos os commits, PRs e respostas do assistente → português
+- Labels, placeholders, toasts, alertas → português
+- Mensagens de validação → português
+
+> ⚠️ **Nunca use inglês em textos visíveis ao usuário.**
+> Erros como `"Invalid credentials"`, `"Email already exists"`, `"Internal Server Error"` devem ser
+> `"Credenciais inválidas"`, `"E-mail já cadastrado"`, `"Erro interno do servidor"`.
+
+---
+
+---
+
 ## 📌 Visão Geral
 
 **RelmDesk** é um helpdesk multimarca para a Relm Bikes (futuro: Wireless, Componentes, Áudio, Monitoramento).
@@ -377,16 +396,23 @@ bash scripts/deploy.sh
 - LGPD (anonimização)
 - Portal público de tickets
 - Scripts de deploy VPS
+- Build frontend sem warnings (ESLint 0 erros)
+- VPS com PM2 rodando (backend porta 5000, frontend porta 3000)
 
 ### 🔄 Em andamento / Pendente
-- Conectar ao PostgreSQL real no VPS
-- Executar migration no VPS
-- Teste end-to-end integrado
-- Usuário admin inicial (seed)
+- Validação funcional end-to-end (login, tickets, fluxos)
+- Assets (favicon/logo)
+- SSL/HTTPS + domínio personalizado
 - E-mail automático (V2)
 - WhatsApp Business API (V2)
-- Domínio personalizado (V2)
-- SSL/HTTPS (V2)
+
+---
+
+## ⚠️ Problemas Conhecidos & Correções
+
+### Login 500 (corrigido em 2026-04-02)
+- **Causa:** `audit_logs` INSERT bloqueava o login em caso de falha; `JWT_SECRET` podia ser undefined
+- **Correção:** `audit_logs` agora em try/catch separado (não-crítico); `ecosystem.config.js` inclui todas as env vars explícitas; fallback para JWT_SECRET hardcoded
 
 ---
 

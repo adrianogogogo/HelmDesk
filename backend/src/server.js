@@ -48,7 +48,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
-  message: { error: 'Too many requests, please try again later.' }
+  message: { error: 'Muitas requisições. Tente novamente em alguns minutos.' }
 });
 app.use('/api/', apiLimiter);
 
@@ -95,7 +95,7 @@ socketService.init(io);
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err.stack);
   res.status(err.status || 500).json({
-    error: err.message || 'Internal Server Error',
+    error: err.message || 'Erro interno do servidor',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });

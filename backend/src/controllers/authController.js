@@ -3,10 +3,12 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'relmdesk_jwt_secret_super_secure_2024_bikes_relm';
+
 const generateToken = (userId, role, departmentId) => {
   return jwt.sign(
     { userId, role, departmentId },
-    process.env.JWT_SECRET,
+    JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 };
@@ -14,9 +16,9 @@ const generateToken = (userId, role, departmentId) => {
 // POST /api/auth/login
 const login = async (req, res, next) => {
   try {
-    const { email, password, department_id } = req.body;
+    const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
+      return res.status(400).json({ error: 'E-mail e senha são obrigatórios' });
     }
 
     const { rows } = await pool.query(
@@ -25,21 +27,25 @@ const login = async (req, res, next) => {
     );
 
     if (!rows.length) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
     const user = rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
-    // Log audit
-    await pool.query(
-      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, ip_address)
-       VALUES ($1, 'login', 'user', $1, $2)`,
-      [user.id, req.ip]
-    );
+    // Log de auditoria — não-crítico: não falha o login se der erro
+    try {
+      await pool.query(
+        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, ip_address)
+         VALUES ($1, 'login', 'user', $1::text, $2)`,
+        [user.id, req.ip]
+      );
+    } catch (auditErr) {
+      console.warn('⚠️  Aviso: falha ao registrar audit_log no login:', auditErr.message);
+    }
 
     const token = generateToken(user.id, user.role, user.department_id);
 
@@ -56,36 +62,37 @@ const login = async (req, res, next) => {
       }
     });
   } catch (err) {
+    console.error('❌ Erro no login:', err.message, err.stack);
     next(err);
   }
 };
 
-// POST /api/auth/register (admin creates users)
+// POST /api/auth/register (gestor/diretor cria usuários)
 const register = async (req, res, next) => {
   try {
     const { name, email, password, role, department_id, store_id, phone, cpf } = req.body;
 
-    // Only gestor/diretor can create users
     const creatorRole = req.user?.role;
     if (!['gestor', 'diretor'].includes(creatorRole)) {
-      return res.status(403).json({ error: 'Only managers can create users' });
+      return res.status(403).json({ error: 'Apenas gestores podem criar usuários' });
     }
 
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length) {
-      return res.status(409).json({ error: 'Email already exists' });
+      return res.status(409).json({ error: 'E-mail já cadastrado' });
     }
 
     const hash = await bcrypt.hash(password, 12);
     const { rows } = await pool.query(
       `INSERT INTO users (id, name, email, password_hash, role, department_id, store_id, phone, cpf, lgpd_consent, lgpd_consent_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, NOW()) RETURNING id, name, email, role`,
-      [uuidv4(), name, email.toLowerCase().trim(), hash, role || 'atendente', 
+      [uuidv4(), name, email.toLowerCase().trim(), hash, role || 'atendente',
        department_id || 1, store_id || null, phone || null, cpf || null]
     );
 
-    res.status(201).json({ user: rows[0], message: 'User created successfully' });
+    res.status(201).json({ user: rows[0], message: 'Usuário criado com sucesso' });
   } catch (err) {
+    console.error('❌ Erro no registro:', err.message);
     next(err);
   }
 };
@@ -94,7 +101,7 @@ const register = async (req, res, next) => {
 const me = async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT u.id, u.name, u.email, u.role, u.department_id, u.store_id, 
+      `SELECT u.id, u.name, u.email, u.role, u.department_id, u.store_id,
               u.phone, u.avatar_url, u.is_online, u.last_seen_at,
               d.name as department_name, s.name as store_name
        FROM users u
@@ -103,8 +110,10 @@ const me = async (req, res, next) => {
        WHERE u.id = $1`,
       [req.user.id]
     );
+    if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
     res.json(rows[0]);
   } catch (err) {
+    console.error('❌ Erro no /me:', err.message);
     next(err);
   }
 };
@@ -116,18 +125,21 @@ const changePassword = async (req, res, next) => {
     const { rows } = await pool.query(
       'SELECT password_hash FROM users WHERE id = $1', [req.user.id]
     );
+    if (!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
+
     const valid = await bcrypt.compare(current_password, rows[0].password_hash);
-    if (!valid) return res.status(400).json({ error: 'Current password incorrect' });
+    if (!valid) return res.status(400).json({ error: 'Senha atual incorreta' });
 
     const hash = await bcrypt.hash(new_password, 12);
     await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
-    res.json({ message: 'Password updated' });
+    res.json({ message: 'Senha alterada com sucesso' });
   } catch (err) {
+    console.error('❌ Erro ao alterar senha:', err.message);
     next(err);
   }
 };
 
-// GET /api/auth/departments (for login screen)
+// GET /api/auth/departments (tela de login)
 const getDepartments = async (req, res, next) => {
   try {
     const { rows } = await pool.query(
@@ -135,6 +147,7 @@ const getDepartments = async (req, res, next) => {
     );
     res.json(rows);
   } catch (err) {
+    console.error('❌ Erro ao buscar departamentos:', err.message);
     next(err);
   }
 };
