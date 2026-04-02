@@ -39,3 +39,4 @@ npm start
 
 ## Documentação completa
 Ver [CLAUDE.md](./CLAUDE.md)
+
