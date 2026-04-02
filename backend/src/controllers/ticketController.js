@@ -33,6 +33,11 @@ const getTickets = async (req, res, next) => {
     if (priority) { params.push(priority); whereConditions.push(`t.priority = $${params.length}`); }
     if (store_id && internalRoles.includes(user.role)) { params.push(store_id); whereConditions.push(`t.store_id = $${params.length}`); }
 
+    if (search) {
+      params.push(`%${search}%`);
+      whereConditions.push(`(t.title ILIKE $${params.length} OR t.client_name ILIKE $${params.length} OR t.ticket_number ILIKE $${params.length})`);
+    }
+
     const where = whereConditions.length ? 'WHERE ' + whereConditions.join(' AND ') : '';
     const sortMap = { created_at: 't.created_at', updated_at: 't.updated_at', ticket_number: 't.ticket_number' };
     const sortCol = sortMap[sort] || 't.created_at';

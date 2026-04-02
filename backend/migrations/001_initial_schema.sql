@@ -129,6 +129,8 @@ CREATE TABLE IF NOT EXISTS products (
   brand_id INT REFERENCES brands(id),
   product_type_id INT REFERENCES product_types(id),
   sku VARCHAR(100),
+  model VARCHAR(200),
+  year INT,
   system_id VARCHAR(100),
   korp_id VARCHAR(100),
   department_id INT REFERENCES departments(id) DEFAULT 1,

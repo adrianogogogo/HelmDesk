@@ -10,8 +10,8 @@ import {
   Logout, Person, Lock
 } from '@mui/icons-material';
 import { logout } from '../../store/slices/authSlice';
-import { toggleDarkMode, setSearchOpen, setChatOpen } from '../../store/slices/uiSlice';
-import { setChatOpen as openChat } from '../../store/slices/chatSlice';
+import { toggleDarkMode, setSearchOpen } from '../../store/slices/uiSlice';
+import { setChatOpen } from '../../store/slices/chatSlice';
 import SearchBar from '../search/SearchBar';
 
 const TopBar = () => {
@@ -57,7 +57,7 @@ const TopBar = () => {
         {/* Chat (internal only) */}
         {internalRoles.includes(user?.role) && (
           <Tooltip title="Chat interno">
-            <IconButton size="small" onClick={() => dispatch(openChat(true))}>
+            <IconButton size="small" onClick={() => dispatch(setChatOpen(true))}>
               <Chat />
             </IconButton>
           </Tooltip>

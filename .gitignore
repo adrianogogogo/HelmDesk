@@ -8,3 +8,9 @@ build/
 .DS_Store
 *.pid
 supervisor*.log
+# Core dumps
+core
+frontend/core
+*.core
+# Lock files in subdirs (optional)
+# frontend/package-lock.json
