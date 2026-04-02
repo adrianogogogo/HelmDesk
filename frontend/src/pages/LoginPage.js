@@ -6,7 +6,7 @@ import {
   Alert, CircularProgress, FormControl, InputLabel, Select, MenuItem,
   Chip, Divider, InputAdornment, IconButton
 } from '@mui/material';
-import { Visibility, VisibilityOff, DirectionsBike } from '@mui/icons-material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { loginStart, loginSuccess, loginFailure } from '../store/slices/authSlice';
 import { authAPI } from '../services/api';
 import toast from 'react-hot-toast';

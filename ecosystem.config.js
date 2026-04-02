@@ -12,7 +12,9 @@ module.exports = {
       max_memory_restart: '512M',
       log_file: '/var/log/relmdesk/backend.log',
       error_file: '/var/log/relmdesk/backend-error.log',
+      out_file: '/var/log/relmdesk/backend-out.log',
       restart_delay: 3000,
-    }
-  ]
+      autorestart: true,
+    },
+  ],
 };

@@ -6,8 +6,8 @@ import {
   FormControlLabel, Tooltip, Divider, List, ListItem, ListItemText,
   ListItemSecondaryAction
 } from '@mui/material';
-import { Save, Add, Edit, Settings, Email, Block, Tune } from '@mui/icons-material';
-import { configAPI } from '../services/api';
+import { Save, Add, Edit, Settings, Email, Tune } from '@mui/icons-material';
+import api, { configAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 const TICKET_STATUSES = [
@@ -58,7 +58,6 @@ const ConfigPage = () => {
   const handleBlockSave = async () => {
     setError('');
     try {
-      const { default: api } = await import('../services/api');
       if (editingBlock) {
         await api.patch(`/config/block-types/${editingBlock.id}`, blockForm);
         toast.success('Bloco atualizado!');
