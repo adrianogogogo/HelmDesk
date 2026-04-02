@@ -16,11 +16,28 @@ echo "======================================================"
 # Create log dir if needed
 mkdir -p $LOG_DIR
 
+# ---- SWAP (ensure 1GB swap for React build on low-RAM VPS) ----
+if [ ! -f /swapfile ]; then
+  echo ""
+  echo "💾 Creating 1GB swapfile for build..."
+  fallocate -l 1G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo "✅ Swap enabled: $(free -h | grep Swap)"
+elif ! swapon --show | grep -q /swapfile; then
+  swapon /swapfile 2>/dev/null || true
+  echo "✅ Swap enabled: $(free -h | grep Swap)"
+else
+  echo "✅ Swap already active: $(free -h | grep Swap)"
+fi
+
 cd $APP_DIR
 
-# Pull latest code
+# Pull latest code (stash local changes first to avoid conflicts)
 echo ""
 echo "📥 Pulling latest code from GitHub..."
+git stash 2>/dev/null || true
 git pull origin main
 
 # ---- BACKEND ----
@@ -46,11 +63,12 @@ fi
 echo ""
 echo "⚛️  Installing frontend dependencies..."
 cd $APP_DIR/frontend
-npm install --legacy-peer-deps 2>&1 | tail -5
+npm install --legacy-peer-deps 2>&1 | tail -3
 
 echo ""
-echo "🔨 Building frontend (2-4 minutes)..."
-CI=false npm run build 2>&1 | tail -10
+echo "🔨 Building frontend (3-5 min on low-RAM VPS)..."
+echo "   Using NODE_OPTIONS=--max-old-space-size=512"
+CI=false npm run build 2>&1 | tail -15
 
 BUILD_SIZE=$(du -sh $APP_DIR/frontend/build 2>/dev/null | cut -f1)
 echo "✅ Frontend build complete: $BUILD_SIZE"
@@ -74,7 +92,7 @@ if pm2 describe relmdesk-frontend > /dev/null 2>&1; then
   echo "  → Reloading frontend..."
   pm2 reload relmdesk-frontend
 else
-  echo "  → Starting frontend with serve..."
+  echo "  → Starting frontend with pm2 serve..."
   pm2 serve $APP_DIR/frontend/build 3000 --name relmdesk-frontend --spa
 fi
 
