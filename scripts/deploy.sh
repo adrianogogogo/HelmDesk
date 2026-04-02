@@ -16,11 +16,11 @@ echo "======================================================"
 # Create log dir if needed
 mkdir -p $LOG_DIR
 
-# ---- SWAP (ensure 1GB swap for React build on low-RAM VPS) ----
+# ---- SWAP (ensure 2GB swap for React build on low-RAM VPS) ----
 if [ ! -f /swapfile ]; then
   echo ""
-  echo "💾 Creating 1GB swapfile for build..."
-  fallocate -l 1G /swapfile
+  echo "💾 Creating 2GB swapfile for build..."
+  fallocate -l 2G /swapfile
   chmod 600 /swapfile
   mkswap /swapfile
   swapon /swapfile
@@ -67,8 +67,9 @@ npm install --legacy-peer-deps 2>&1 | tail -3
 
 echo ""
 echo "🔨 Building frontend (3-5 min on low-RAM VPS)..."
-echo "   Using NODE_OPTIONS=--max-old-space-size=512"
-CI=false npm run build 2>&1 | tail -15
+echo "   Using GENERATE_SOURCEMAP=false NODE_OPTIONS=--max-old-space-size=1536"
+# GENERATE_SOURCEMAP=false cuts memory usage by ~40% during build
+CI=false GENERATE_SOURCEMAP=false NODE_OPTIONS=--max-old-space-size=1536 npm run build 2>&1 | tail -15
 
 BUILD_SIZE=$(du -sh $APP_DIR/frontend/build 2>/dev/null | cut -f1)
 echo "✅ Frontend build complete: $BUILD_SIZE"

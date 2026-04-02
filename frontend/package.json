@@ -30,7 +30,7 @@
   },
   "scripts": {
     "start": "PORT=3000 react-scripts start",
-    "build": "NODE_OPTIONS=--max-old-space-size=512 react-scripts build",
+    "build": "GENERATE_SOURCEMAP=false NODE_OPTIONS=--max-old-space-size=1536 react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
