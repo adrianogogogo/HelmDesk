@@ -19,11 +19,6 @@ const SearchPage = () => {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (initialQ) handleSearch(initialQ);
-  }, []);
-
   const handleSearch = async (q = query) => {
     if (!q.trim()) return;
     setLoading(true);
@@ -35,6 +30,11 @@ const SearchPage = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (initialQ) handleSearch(initialQ);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Box>

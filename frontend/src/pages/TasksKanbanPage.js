@@ -116,10 +116,10 @@ const TasksKanbanPage = () => {
     } catch { }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadKanban();
     userAPI.list().then(r => setUsers(r.data.filter(u => ['atendente', 'gestor', 'diretor'].includes(u.role)))).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDragEnd = async (event) => {
