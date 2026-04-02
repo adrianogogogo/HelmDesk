@@ -9,6 +9,7 @@ import { setNotifications } from '../../store/slices/notificationSlice';
 import { notificationAPI } from '../../services/api';
 import { initSocket } from '../../services/socket';
 
+// Deve coincidir com as constantes definidas em Sidebar.js
 const SIDEBAR_WIDTH = 260;
 const SIDEBAR_COLLAPSED = 70;
 
@@ -23,25 +24,28 @@ const MainLayout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, dispatch]);
 
+  // Sidebar usa position:fixed — o conteúdo principal precisa
+  // de padding-left igual à largura atual da sidebar para não ficar embaixo dela
   const sidebarWidth = sidebarOpen ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED;
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Sidebar fixa — position fixed, não ocupa espaço no flex */}
-      <Sidebar width={SIDEBAR_WIDTH} />
 
-      {/* Conteúdo principal — deslocado pela largura da sidebar */}
+      {/* Sidebar: position fixed, fora do fluxo normal do DOM */}
+      <Sidebar />
+
+      {/* Conteúdo principal: deslocado via paddingLeft (não margin) */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: `calc(100% - ${sidebarWidth}px)`,
-          ml: `${sidebarWidth}px`,
-          transition: 'margin 0.25s ease, width 0.25s ease',
+          pl: `${sidebarWidth}px`,       // empurra para direita da sidebar
+          transition: 'padding-left 0.25s ease',
           display: 'flex',
           flexDirection: 'column',
           minHeight: '100vh',
-          overflow: 'hidden',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         <TopBar />
