@@ -6,8 +6,8 @@ import {
   IconButton, Tooltip, Avatar, Grid, Paper, Divider
 } from '@mui/material';
 import {
-  DndContext, closestCenter, PointerSensor,
-  KeyboardSensor, useSensor, useSensors, DragOverlay
+  DndContext, rectIntersection, PointerSensor,
+  KeyboardSensor, useSensor, useSensors, DragOverlay, useDroppable
 } from '@dnd-kit/core';
 import {
   SortableContext, useSortable, verticalListSortingStrategy,
@@ -16,7 +16,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   Add, WhatsApp, Edit, Delete, ConfirmationNumber,
-  DragIndicator, CalendarToday, Person
+  DragIndicator, CalendarToday, Person, CheckCircle
 } from '@mui/icons-material';
 import { taskAPI, userAPI } from '../services/api';
 import { useDispatch, useSelector } from 'react-redux';
@@ -26,9 +26,9 @@ import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const COLUMNS = [
-  { key: 'pendente',     label: 'Pendente',     emoji: '📋', color: '#607D8B', bg: '#607D8B12' },
-  { key: 'em_andamento', label: 'Em Andamento', emoji: '⚡', color: '#FF9800', bg: '#FF980012' },
-  { key: 'concluida',    label: 'Concluída',    emoji: '✅', color: '#4CAF50', bg: '#4CAF5012' },
+  { key: 'pendente',     label: 'Pendente',     emoji: '📋', color: '#607D8B', bg: '#607D8B0D' },
+  { key: 'em_andamento', label: 'Em Andamento', emoji: '⚡', color: '#FF9800', bg: '#FF98000D' },
+  { key: 'concluida',    label: 'Concluída',    emoji: '✅', color: '#4CAF50', bg: '#4CAF500D' },
 ];
 
 const PRIORITIES = {
@@ -38,10 +38,12 @@ const PRIORITIES = {
   low:    { label: 'Baixa',   color: '#9E9E9E', bg: '#F5F5F5' },
 };
 
-// Card individual (sortable)
-const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, isDragOverlay }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id });
+// ─── Card individual (sortable) ───────────────────────────────
+const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, isDragOverlay }) => {
+  const {
+    attributes, listeners, setNodeRef,
+    transform, transition, isDragging,
+  } = useSortable({ id: String(task.id) });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -51,40 +53,49 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, isDragOverlay })
 
   const pri = PRIORITIES[task.priority] || PRIORITIES.normal;
   const dueDateRaw = task.due_date ? new Date(task.due_date) : null;
-  const isOverdue = dueDateRaw && isPast(dueDateRaw) && task.status !== 'concluida' && !isToday(dueDateRaw);
+  const isOverdue  = dueDateRaw && isPast(dueDateRaw)  && task.status !== 'concluida' && !isToday(dueDateRaw);
   const isDueToday = dueDateRaw && isToday(dueDateRaw) && task.status !== 'concluida';
 
   return (
     <Paper
       ref={setNodeRef}
       style={style}
-      elevation={isDragOverlay ? 8 : isDragging ? 0 : 1}
+      elevation={isDragOverlay ? 8 : 1}
       sx={{
         mb: 1.5, borderRadius: 2,
         border: '1px solid',
         borderColor: isOverdue ? '#F44336' : isDueToday ? '#FF9800' : 'divider',
         bgcolor: 'background.paper',
-        transition: 'box-shadow 0.2s, border-color 0.2s',
         overflow: 'hidden',
+        transition: 'box-shadow 0.2s, border-color 0.2s',
         '&:hover': { boxShadow: '0 4px 16px rgba(0,0,0,0.13)', borderColor: 'primary.main' },
         cursor: isDragOverlay ? 'grabbing' : 'default',
       }}
     >
-      {/* Barra de prioridade (topo) */}
-      <Box sx={{ height: 3, bgcolor: pri.color, borderRadius: '2px 2px 0 0' }} />
+      {/* Barra de prioridade colorida no topo */}
+      <Box sx={{ height: 3, bgcolor: pri.color }} />
 
       <Box sx={{ p: 1.5 }}>
-        {/* Linha 1: drag + ticket + prioridade */}
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+          {/* Handle de drag — apenas esta área ativa o drag */}
           <Box
-            {...attributes} {...listeners}
-            sx={{ color: 'text.disabled', cursor: 'grab', mt: 0.3, flexShrink: 0, touchAction: 'none' }}
+            {...attributes}
+            {...listeners}
+            sx={{
+              color: 'text.disabled',
+              cursor: 'grab',
+              mt: 0.3,
+              flexShrink: 0,
+              touchAction: 'none',
+              '&:active': { cursor: 'grabbing' },
+            }}
           >
             <DragIndicator fontSize="small" />
           </Box>
+
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            {/* Linha de badges */}
-            <Box sx={{ display: 'flex', gap: 0.5, mb: 0.8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Badges: ticket + prioridade */}
+            <Box sx={{ display: 'flex', gap: 0.5, mb: 0.7, flexWrap: 'wrap', alignItems: 'center' }}>
               {task.ticket_number && (
                 <Chip
                   label={`#${task.ticket_number}`} size="small"
@@ -99,24 +110,26 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, isDragOverlay })
             </Box>
 
             {/* Título */}
-            <Typography variant="body2" fontWeight={700} sx={{ lineHeight: 1.3, mb: 0.5 }}>
+            <Typography variant="body2" fontWeight={700} sx={{ lineHeight: 1.3, mb: 0.4 }}>
               {task.title}
             </Typography>
 
-            {/* Descrição */}
+            {/* Descrição truncada */}
             {task.description && (
               <Typography variant="caption" color="text.secondary"
                 sx={{ display: 'block', mb: 0.8, lineHeight: 1.4 }}>
-                {task.description.length > 90 ? task.description.substring(0, 90) + '…' : task.description}
+                {task.description.length > 90
+                  ? task.description.substring(0, 90) + '…'
+                  : task.description}
               </Typography>
             )}
 
             <Divider sx={{ my: 0.8 }} />
 
-            {/* Footer: assignee + data + ações */}
+            {/* Footer: avatar + data + ações */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               {/* Assignee + data */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                 {task.assigned_name ? (
                   <Tooltip title={task.assigned_name}>
                     <Avatar sx={{ width: 22, height: 22, fontSize: 10, bgcolor: '#1565C0', flexShrink: 0 }}>
@@ -125,17 +138,21 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, isDragOverlay })
                   </Tooltip>
                 ) : (
                   <Tooltip title="Não atribuído">
-                    <Avatar sx={{ width: 22, height: 22, fontSize: 10, bgcolor: '#e0e0e0', color: '#9e9e9e', flexShrink: 0 }}>
+                    <Avatar sx={{ width: 22, height: 22, bgcolor: '#e0e0e0', color: '#9e9e9e', flexShrink: 0 }}>
                       <Person sx={{ fontSize: 14 }} />
                     </Avatar>
                   </Tooltip>
                 )}
                 {dueDateRaw && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-                    <CalendarToday sx={{ fontSize: 11, color: isOverdue ? 'error.main' : isDueToday ? 'warning.main' : 'text.disabled' }} />
-                    <Typography variant="caption"
-                      sx={{ fontWeight: isOverdue || isDueToday ? 700 : 400,
-                            color: isOverdue ? 'error.main' : isDueToday ? 'warning.main' : 'text.secondary' }}>
+                    <CalendarToday sx={{
+                      fontSize: 11,
+                      color: isOverdue ? 'error.main' : isDueToday ? 'warning.main' : 'text.disabled',
+                    }} />
+                    <Typography variant="caption" sx={{
+                      fontWeight: isOverdue || isDueToday ? 700 : 400,
+                      color: isOverdue ? 'error.main' : isDueToday ? 'warning.main' : 'text.secondary',
+                    }}>
                       {isOverdue ? '⚠️ ' : isDueToday ? '🔔 ' : ''}
                       {format(dueDateRaw, 'dd/MM', { locale: ptBR })}
                     </Typography>
@@ -145,8 +162,18 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, isDragOverlay })
 
               {/* Ações */}
               <Box sx={{ display: 'flex', gap: 0 }}>
+                {/* Botão Encerrar — só aparece se não estiver concluída */}
+                {task.status !== 'concluida' && (
+                  <Tooltip title="Encerrar tarefa">
+                    <IconButton size="small" sx={{ color: '#4CAF50', p: 0.4 }}
+                      onClick={() => onClose(task)}>
+                      <CheckCircle sx={{ fontSize: 15 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title="Lembrete WhatsApp">
-                  <IconButton size="small" sx={{ color: '#25D366', p: 0.4 }} onClick={() => onWhatsApp(task)}>
+                  <IconButton size="small" sx={{ color: '#25D366', p: 0.4 }}
+                    onClick={() => onWhatsApp(task)}>
                     <WhatsApp sx={{ fontSize: 15 }} />
                   </IconButton>
                 </Tooltip>
@@ -156,7 +183,8 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, isDragOverlay })
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Excluir">
-                  <IconButton size="small" color="error" sx={{ p: 0.4 }} onClick={() => onDelete(task)}>
+                  <IconButton size="small" color="error" sx={{ p: 0.4 }}
+                    onClick={() => onDelete(task)}>
                     <Delete sx={{ fontSize: 15 }} />
                   </IconButton>
                 </Tooltip>
@@ -169,59 +197,83 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, isDragOverlay })
   );
 };
 
-// Coluna droppable
-const KanbanColumn = ({ col, tasks, onWhatsApp, onEdit, onDelete }) => (
-  <Box
-    sx={{
-      bgcolor: col.bg,
-      borderRadius: 3,
-      border: '1px solid',
-      borderColor: col.color + '30',
-      minHeight: 300,
-      display: 'flex',
-      flexDirection: 'column',
-    }}
-  >
-    {/* Header */}
-    <Box sx={{
-      px: 2, py: 1.5,
-      borderBottom: `3px solid ${col.color}`,
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      borderRadius: '12px 12px 0 0',
-    }}>
-      <Typography variant="subtitle2" fontWeight={700}>
-        {col.emoji} {col.label}
-      </Typography>
-      <Chip
-        label={tasks.length}
-        size="small"
-        sx={{ bgcolor: col.color, color: '#fff', fontWeight: 700, fontSize: 11, height: 20 }}
-      />
+// ─── Coluna droppable (usa useDroppable para ser zona de drop) ─
+const KanbanColumn = ({ col, tasks, isDragOver, onWhatsApp, onEdit, onDelete, onClose }) => {
+  const { setNodeRef } = useDroppable({ id: col.key });
+
+  return (
+    <Box
+      ref={setNodeRef}
+      sx={{
+        bgcolor: isDragOver ? col.color + '18' : col.bg,
+        borderRadius: 3,
+        border: '2px solid',
+        borderColor: isDragOver ? col.color : col.color + '30',
+        minHeight: 340,
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'all 0.15s',
+      }}
+    >
+      {/* Header */}
+      <Box sx={{
+        px: 2, py: 1.5,
+        borderBottom: `3px solid ${col.color}`,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        borderRadius: '10px 10px 0 0',
+      }}>
+        <Typography variant="subtitle2" fontWeight={700}>
+          {col.emoji} {col.label}
+        </Typography>
+        <Chip
+          label={tasks.length}
+          size="small"
+          sx={{ bgcolor: col.color, color: '#fff', fontWeight: 700, fontSize: 11, height: 20 }}
+        />
+      </Box>
+
+      {/* Cards */}
+      <Box sx={{ p: 1.5, flexGrow: 1 }}>
+        <SortableContext
+          items={tasks.map(t => String(t.id))}
+          strategy={verticalListSortingStrategy}
+        >
+          {tasks.map(task => (
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              onWhatsApp={onWhatsApp}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onClose={onClose}
+            />
+          ))}
+        </SortableContext>
+
+        {tasks.length === 0 && (
+          <Box sx={{
+            textAlign: 'center', py: 5, color: isDragOver ? col.color : 'text.disabled',
+            border: '2px dashed',
+            borderColor: isDragOver ? col.color : col.color + '40',
+            borderRadius: 2, mt: 0.5,
+            transition: 'all 0.15s',
+          }}>
+            <Typography variant="caption" fontWeight={isDragOver ? 700 : 400}>
+              {isDragOver ? '⬇ Soltar aqui' : 'Arraste tarefas aqui'}
+            </Typography>
+          </Box>
+        )}
+      </Box>
     </Box>
+  );
+};
 
-    {/* Cards */}
-    <Box sx={{ p: 1.5, flexGrow: 1 }}>
-      <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-        {tasks.map(task => (
-          <SortableTaskCard key={task.id} task={task}
-            onWhatsApp={onWhatsApp} onEdit={onEdit} onDelete={onDelete} />
-        ))}
-      </SortableContext>
-      {tasks.length === 0 && (
-        <Box sx={{
-          textAlign: 'center', py: 5, color: 'text.disabled',
-          border: '2px dashed', borderColor: col.color + '40',
-          borderRadius: 2, mt: 0.5,
-        }}>
-          <Typography variant="caption">Arraste tarefas aqui</Typography>
-        </Box>
-      )}
-    </Box>
-  </Box>
-);
+const emptyForm = {
+  title: '', description: '', assigned_to: '', ticket_id: '',
+  due_date: '', status: 'pendente', priority: 'normal',
+};
 
-const emptyForm = { title: '', description: '', assigned_to: '', ticket_id: '', due_date: '', status: 'pendente', priority: 'normal' };
-
+// ─── Página principal ─────────────────────────────────────────
 const TasksKanbanPage = () => {
   const dispatch = useDispatch();
   const { kanban } = useSelector(s => s.tasks);
@@ -231,9 +283,10 @@ const TasksKanbanPage = () => {
   const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTask, setActiveTask] = useState(null);
+  const [overColKey, setOverColKey] = useState(null); // coluna que está sendo hovada
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -252,57 +305,83 @@ const TasksKanbanPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const findTaskById = (id) => {
-    for (const col of COLUMNS) {
-      const t = kanban[col.key]?.find(t => t.id === id);
-      if (t) return t;
-    }
-    return null;
-  };
-
+  // Encontra a coluna de uma tarefa pelo id (compara como string para evitar mismatch number/string)
   const findColByTaskId = (id) => {
+    const sid = String(id);
     for (const col of COLUMNS) {
-      if (kanban[col.key]?.find(t => t.id === id)) return col.key;
+      if (kanban[col.key]?.find(t => String(t.id) === sid)) return col.key;
     }
     return null;
   };
 
-  const handleDragStart = (event) => {
-    const { active } = event;
-    setActiveTask(findTaskById(active.id));
+  // Encontra a coluna do over (pode ser colKey direto ou uma tarefa dentro dela)
+  const resolveDestCol = (overId) => {
+    // É uma coluna?
+    if (COLUMNS.find(c => c.key === overId)) return overId;
+    // É uma tarefa em alguma coluna?
+    return findColByTaskId(overId);
   };
 
-  const handleDragEnd = async (event) => {
-    const { active, over } = event;
+  const handleDragStart = ({ active }) => {
+    const sid = String(active.id);
+    for (const col of COLUMNS) {
+      const found = kanban[col.key]?.find(t => String(t.id) === sid);
+      if (found) { setActiveTask(found); return; }
+    }
     setActiveTask(null);
-    if (!over || active.id === over.id) return;
+  };
+
+  const handleDragOver = ({ over }) => {
+    if (!over) { setOverColKey(null); return; }
+    setOverColKey(resolveDestCol(over.id));
+  };
+
+  const handleDragEnd = async ({ active, over }) => {
+    setActiveTask(null);
+    setOverColKey(null);
+    if (!over) return;
 
     const sourceCol = findColByTaskId(active.id);
-    let destCol = COLUMNS.find(c => c.key === over.id)?.key;
-    if (!destCol) destCol = findColByTaskId(over.id);
+    const destCol   = resolveDestCol(over.id);
 
     if (!sourceCol || !destCol || sourceCol === destCol) return;
 
+    // Optimistic update
     dispatch(moveTask({ taskId: active.id, fromCol: sourceCol, toCol: destCol }));
     try {
       await taskAPI.update(active.id, { status: destCol });
-      toast.success(`Tarefa movida para ${COLUMNS.find(c => c.key === destCol)?.label}!`);
+      toast.success(
+        `Tarefa movida para ${COLUMNS.find(c => c.key === destCol)?.label}!`,
+        { icon: COLUMNS.find(c => c.key === destCol)?.emoji }
+      );
     } catch {
+      toast.error('Erro ao mover tarefa');
+      loadKanban(); // reverte
+    }
+  };
+
+  const handleCloseTask = async (task) => {
+    dispatch(moveTask({ taskId: String(task.id), fromCol: task.status, toCol: 'concluida' }));
+    try {
+      await taskAPI.update(task.id, { status: 'concluida' });
+      toast.success('✅ Tarefa encerrada!');
+    } catch {
+      toast.error('Erro ao encerrar tarefa');
       loadKanban();
     }
   };
 
   const openCreate = () => { setEditingTask(null); setForm(emptyForm); setDialog(true); };
-  const openEdit = (task) => {
+  const openEdit   = (task) => {
     setEditingTask(task);
     setForm({
-      title: task.title,
+      title:       task.title,
       description: task.description || '',
       assigned_to: task.assigned_to || '',
-      ticket_id: task.ticket_id || '',
-      due_date: task.due_date ? task.due_date.substring(0, 10) : '',
-      status: task.status,
-      priority: task.priority || 'normal',
+      ticket_id:   task.ticket_id || '',
+      due_date:    task.due_date ? task.due_date.substring(0, 10) : '',
+      status:      task.status,
+      priority:    task.priority || 'normal',
     });
     setDialog(true);
   };
@@ -337,7 +416,9 @@ const TasksKanbanPage = () => {
       const { data } = await taskAPI.whatsapp(task.id);
       window.open(data.whatsapp_url, '_blank');
     } catch {
-      const msg = encodeURIComponent(`Olá! Você tem uma tarefa pendente: *${task.title}*. Acesse o sistema: http://177.153.39.134:3000`);
+      const msg = encodeURIComponent(
+        `Olá! Você tem uma tarefa pendente: *${task.title}*. Acesse o sistema: http://177.153.39.134:3000`
+      );
       window.open(`https://wa.me/?text=${msg}`, '_blank');
     }
   };
@@ -350,18 +431,21 @@ const TasksKanbanPage = () => {
         <Box>
           <Typography variant="h5" fontWeight={700}>Tarefas — Kanban</Typography>
           <Typography variant="body2" color="text.secondary">
-            {totalTasks} tarefa(s) no total
-            {' · '}
-            {COLUMNS.map(c => `${kanban[c.key]?.length || 0} ${c.label.toLowerCase()}`).join(' · ')}
+            {totalTasks} tarefa(s) · {COLUMNS.map(c =>
+              `${kanban[c.key]?.length || 0} ${c.label.toLowerCase()}`
+            ).join(' · ')}
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={openCreate}>Nova Tarefa</Button>
+        <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
+          Nova Tarefa
+        </Button>
       </Box>
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={rectIntersection}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <Grid container spacing={2}>
@@ -370,36 +454,40 @@ const TasksKanbanPage = () => {
               <KanbanColumn
                 col={col}
                 tasks={kanban[col.key] || []}
+                isDragOver={overColKey === col.key}
                 onWhatsApp={handleWhatsApp}
                 onEdit={openEdit}
                 onDelete={handleDelete}
+                onClose={handleCloseTask}
               />
             </Grid>
           ))}
         </Grid>
 
-        {/* Overlay visível durante o drag */}
-        <DragOverlay>
+        {/* Overlay visual durante o drag */}
+        <DragOverlay dropAnimation={{ duration: 180, easing: 'ease' }}>
           {activeTask ? (
             <SortableTaskCard
               task={activeTask}
               onWhatsApp={() => {}}
               onEdit={() => {}}
               onDelete={() => {}}
+              onClose={() => {}}
               isDragOverlay
             />
           ) : null}
         </DragOverlay>
       </DndContext>
 
-      {/* Dialog criar/editar */}
+      {/* Dialog criar / editar */}
       <Dialog open={dialog} onClose={() => setDialog(false)} maxWidth="sm" fullWidth disableRestoreFocus>
         <DialogTitle sx={{ fontWeight: 700 }}>
           {editingTask ? '✏️ Editar Tarefa' : '➕ Nova Tarefa'}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField fullWidth label="Título *" size="small" value={form.title}
+            <TextField fullWidth label="Título *" size="small"
+              value={form.title}
               onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
             <TextField fullWidth label="Descrição" size="small" multiline rows={3}
               value={form.description}
@@ -419,8 +507,8 @@ const TasksKanbanPage = () => {
               </Grid>
               <Grid item xs={6}>
                 <FormControl fullWidth size="small">
-                  <InputLabel>Status</InputLabel>
-                  <Select value={form.status} label="Status"
+                  <InputLabel>Status inicial</InputLabel>
+                  <Select value={form.status} label="Status inicial"
                     onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
                     <MenuItem value="pendente">📋 Pendente</MenuItem>
                     <MenuItem value="em_andamento">⚡ Em Andamento</MenuItem>
@@ -445,7 +533,8 @@ const TasksKanbanPage = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setDialog(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSave} disabled={loading || !form.title}>
+          <Button variant="contained" onClick={handleSave}
+            disabled={loading || !form.title}>
             {loading ? 'Salvando...' : 'Salvar'}
           </Button>
         </DialogActions>
