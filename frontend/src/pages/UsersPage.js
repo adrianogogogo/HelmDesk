@@ -6,7 +6,7 @@ import {
   Tooltip, Avatar, InputAdornment, Alert
 } from '@mui/material';
 import { Add, Edit, Search, PersonOff } from '@mui/icons-material';
-import api, { userAPI, storeAPI } from '../services/api';
+import { userAPI, storeAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 const ROLES = [
@@ -68,7 +68,7 @@ const UsersPage = () => {
         await userAPI.update(editing.id, payload);
         toast.success('Usuário atualizado!');
       } else {
-        await api.post('/auth/register', form);
+        await userAPI.create(form);
         toast.success('Usuário criado!');
       }
       setDialog(false);

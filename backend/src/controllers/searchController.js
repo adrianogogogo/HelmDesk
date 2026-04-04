@@ -9,14 +9,18 @@ const search = async (req, res, next) => {
     const user = req.user;
     const internalRoles = ['atendente', 'gestor', 'diretor'];
     const term = `%${q}%`;
-    const params = [term, term, term, term, term, term, parseInt(limit)];
 
+    // Base params: $1-$6 são term, $7 é limit
+    const params = [term, term, term, term, term, term, parseInt(limit)];
     let visibilityWhere = '';
+
     if (!internalRoles.includes(user.role)) {
       if (user.role === 'loja') {
-        visibilityWhere = `AND t.store_id = '${user.store_id}'`;
+        params.push(user.store_id); // $8
+        visibilityWhere = 'AND t.store_id = $8';
       } else if (user.role === 'cliente') {
-        visibilityWhere = `AND (t.client_user_id = '${user.id}' OR t.created_by = '${user.id}')`;
+        params.push(user.id, user.id); // $8, $9
+        visibilityWhere = 'AND (t.client_user_id = $8 OR t.created_by = $9)';
       }
     }
 
@@ -63,10 +67,18 @@ const suggest = async (req, res, next) => {
     const internalRoles = ['atendente', 'gestor', 'diretor'];
     const term = `%${q}%`;
 
+    // Base params: $1 é term
+    const params = [term];
     let visibilityWhere = '';
+
     if (!internalRoles.includes(user.role)) {
-      if (user.role === 'loja') visibilityWhere = `AND t.store_id = '${user.store_id}'`;
-      else if (user.role === 'cliente') visibilityWhere = `AND (t.client_user_id = '${user.id}' OR t.created_by = '${user.id}')`;
+      if (user.role === 'loja') {
+        params.push(user.store_id); // $2
+        visibilityWhere = 'AND t.store_id = $2';
+      } else if (user.role === 'cliente') {
+        params.push(user.id, user.id); // $2, $3
+        visibilityWhere = 'AND (t.client_user_id = $2 OR t.created_by = $3)';
+      }
     }
 
     const { rows } = await pool.query(`
@@ -86,7 +98,7 @@ const suggest = async (req, res, next) => {
         )
       ORDER BY t.updated_at DESC
       LIMIT 8
-    `, [term]);
+    `, params);
 
     res.json({ suggestions: rows });
   } catch (err) {

@@ -118,7 +118,7 @@ const ChatDrawer = () => {
           )}
           {rooms.map(room => (
             <React.Fragment key={room.id}>
-              <ListItem button onClick={() => dispatch(setActiveRoom(room))} sx={{ py: 1.5 }}>
+              <ListItem onClick={() => dispatch(setActiveRoom(room))} sx={{ py: 1.5, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
                 <ListItemAvatar>
                   <Badge badgeContent={room.unread_count > 0 ? room.unread_count : null} color="error">
                     <Avatar sx={{ bgcolor: '#1565C0' }}>{roomName(room)?.charAt(0)}</Avatar>
@@ -149,7 +149,7 @@ const ChatDrawer = () => {
         <List sx={{ flexGrow: 1, overflowY: 'auto' }}>
           {users.map(u => (
             <React.Fragment key={u.id}>
-              <ListItem button onClick={() => openDirectChat(u)}>
+              <ListItem onClick={() => openDirectChat(u)} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
                 <ListItemAvatar>
                   <Badge
                     overlap="circular" anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}

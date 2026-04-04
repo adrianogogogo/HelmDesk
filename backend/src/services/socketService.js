@@ -4,7 +4,6 @@ const connectedUsers = new Map(); // userId -> socketId
 
 const init = (io) => {
   io.on('connection', (socket) => {
-    console.log(`🔌 Socket connected: ${socket.id}`);
 
     // Authenticate socket
     socket.on('authenticate', async (userId) => {
@@ -12,13 +11,12 @@ const init = (io) => {
       connectedUsers.set(userId, socket.id);
       socket.userId = userId;
 
-      // Mark online
+      // Marcar online
       await pool.query(
         'UPDATE users SET is_online=TRUE, last_seen_at=NOW() WHERE id=$1', [userId]
       ).catch(console.error);
 
       io.emit('user_online', { userId, online: true });
-      console.log(`👤 User ${userId} authenticated`);
     });
 
     // Join room
@@ -70,7 +68,7 @@ const init = (io) => {
       socket.to(`room:${room_id}`).emit('user_stop_typing', { room_id });
     });
 
-    // Disconnect
+    // Desconexão
     socket.on('disconnect', async () => {
       if (socket.userId) {
         connectedUsers.delete(socket.userId);
@@ -79,7 +77,6 @@ const init = (io) => {
         ).catch(console.error);
         io.emit('user_online', { userId: socket.userId, online: false });
       }
-      console.log(`🔌 Socket disconnected: ${socket.id}`);
     });
   });
 };

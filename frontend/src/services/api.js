@@ -86,6 +86,7 @@ export const dashboardAPI = {
 // Users
 export const userAPI = {
   list: () => api.get('/users'),
+  create: (data) => api.post('/users', data),
   update: (id, data) => api.patch(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
 };

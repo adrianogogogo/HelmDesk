@@ -378,44 +378,109 @@ const removeProduct = async (req, res, next) => {
   }
 };
 
+// Tipos de solução que requerem aprovação do diretor obrigatoriamente
+const SOLUTION_TYPES_REQUIRE_DIRECTOR = ['troca', 'reembolso'];
+
+// Rótulos legíveis por tipo de solução
+const SOLUTION_TYPE_LABELS = {
+  reparo:    'Reparo / Manutenção',
+  troca:     'Troca de Produto',
+  reembolso: 'Reembolso',
+  cortesia:  'Cortesia / Bonificação',
+  outro:     'Outro',
+};
+
 // POST /api/tickets/:id/solutions
 const addSolution = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { description, has_cost, cost_value, cost_notes } = req.body;
+    const {
+      description,
+      solution_type = 'outro',
+      has_cost,
+      cost_value,
+      cost_notes,
+    } = req.body;
     const user = req.user;
 
-    const { rows } = await pool.query(`
-      INSERT INTO ticket_solutions (ticket_id, description, has_cost, cost_value, cost_notes, proposed_by)
-      VALUES ($1,$2,$3,$4,$5,$6) RETURNING *
-    `, [id, description, has_cost || false, cost_value || null, cost_notes || null, user.id]);
+    if (!description || !description.trim()) {
+      return res.status(400).json({ error: 'Descrição da solução é obrigatória' });
+    }
 
-    // If has cost, create auto task for manager
-    if (has_cost && cost_value > 0) {
-      const { rows: managers } = await pool.query(
-        `SELECT id FROM users WHERE role IN ('gestor','diretor') AND is_active = TRUE AND department_id = 1 LIMIT 1`
-      );
-      if (managers.length) {
-        const ticket = await pool.query('SELECT ticket_number FROM tickets WHERE id = $1', [id]);
-        await pool.query(`
-          INSERT INTO tasks (title, description, ticket_id, assigned_to, created_by, status, priority)
-          VALUES ($1,$2,$3,$4,$5,'pendente','high')
-        `, [
-          `Aprovar solução com custo - Ticket #${ticket.rows[0]?.ticket_number}`,
-          `Solução proposta com custo de R$ ${cost_value}. ${cost_notes || ''}`,
-          id, managers[0].id, user.id
-        ]);
-      }
+    // Troca e reembolso sempre exigem aprovação do diretor
+    const requiresDirector = SOLUTION_TYPES_REQUIRE_DIRECTOR.includes(solution_type);
+
+    const { rows } = await pool.query(`
+      INSERT INTO ticket_solutions
+        (ticket_id, description, solution_type, has_cost, cost_value, cost_notes,
+         proposed_by, requires_director, authorization_level)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      RETURNING *
+    `, [
+      id, description, solution_type,
+      has_cost || false, cost_value || null, cost_notes || null,
+      user.id, requiresDirector,
+      'gestor', // sempre começa aguardando o gestor
+    ]);
+
+    const solution = rows[0];
+
+    // Buscar dados do ticket para as tarefas automáticas
+    const { rows: ticketRows } = await pool.query(
+      'SELECT ticket_number, department_id FROM tickets WHERE id = $1', [id]
+    );
+    const ticketNumber = ticketRows[0]?.ticket_number;
+    const deptId = ticketRows[0]?.department_id || 1;
+
+    // Criar tarefa automática para gestor aprovar
+    const { rows: managers } = await pool.query(
+      `SELECT id FROM users WHERE role IN ('gestor','diretor') AND is_active = TRUE AND department_id = $1 LIMIT 1`,
+      [deptId]
+    );
+    if (managers.length) {
+      const typeLabel = SOLUTION_TYPE_LABELS[solution_type] || solution_type;
+      const hasCostInfo = has_cost && cost_value > 0 ? ` | Custo: R$ ${parseFloat(cost_value).toFixed(2)}` : '';
+      await pool.query(`
+        INSERT INTO tasks (title, description, ticket_id, assigned_to, created_by, status, priority)
+        VALUES ($1,$2,$3,$4,$5,'pendente','high')
+      `, [
+        `✅ Autorizar solução — ${typeLabel} | Ticket #${ticketNumber}`,
+        `Solução proposta: ${description}${hasCostInfo}${cost_notes ? ' | ' + cost_notes : ''}`,
+        id, managers[0].id, user.id,
+      ]);
+    }
+
+    // Notificar gestores sobre solução pendente
+    const { rows: notifTargets } = await pool.query(
+      `SELECT id FROM users WHERE role IN ('gestor','diretor') AND is_active = TRUE AND department_id = $1`,
+      [deptId]
+    );
+    for (const target of notifTargets) {
+      await pool.query(`
+        INSERT INTO notifications (user_id, title, message, type, related_ticket_id)
+        VALUES ($1,$2,$3,'solution',$4)
+      `, [
+        target.id,
+        '💡 Nova solução para autorizar',
+        `Ticket #${ticketNumber}: solução do tipo "${SOLUTION_TYPE_LABELS[solution_type]}" aguarda sua autorização.`,
+        id,
+      ]);
     }
 
     await pool.query(`
       INSERT INTO ticket_history (ticket_id, user_id, action_type, new_value, is_internal)
       VALUES ($1,$2,'solution_proposed',$3,TRUE)
-    `, [id, user.id, description]);
+    `, [id, user.id,
+      `[${SOLUTION_TYPE_LABELS[solution_type] || solution_type}] ${description}${has_cost ? ` | R$ ${cost_value}` : ''}`,
+    ]);
 
     await registerGoal(user.id, id, null, 'solution_proposed');
 
-    res.status(201).json(rows[0]);
+    // Emitir socket
+    const io = req.app.get('io');
+    if (io) io.emit('ticket_updated', { ticketId: id });
+
+    res.status(201).json(solution);
   } catch (err) {
     next(err);
   }
@@ -429,28 +494,211 @@ const approveSolution = async (req, res, next) => {
     const user = req.user;
 
     if (!['gestor', 'diretor'].includes(user.role)) {
-      return res.status(403).json({ error: 'Apenas gestores podem aprovar soluções' });
+      return res.status(403).json({ error: 'Apenas gestores e diretores podem autorizar soluções' });
     }
 
-    const status = approved ? 'aprovado' : 'reprovado';
-    await pool.query(`
-      UPDATE ticket_solutions SET status = $1, approved_by = $2, approved_at = NOW(), rejection_reason = $3
-      WHERE id = $4 AND ticket_id = $5
-    `, [status, user.id, rejection_reason || null, solutionId, id]);
+    // Buscar solução atual
+    const { rows: solRows } = await pool.query(
+      'SELECT * FROM ticket_solutions WHERE id = $1 AND ticket_id = $2',
+      [solutionId, id]
+    );
+    if (!solRows.length) {
+      return res.status(404).json({ error: 'Solução não encontrada' });
+    }
+    const sol = solRows[0];
 
-    await pool.query(`
-      INSERT INTO ticket_history (ticket_id, user_id, action_type, new_value, is_internal)
-      VALUES ($1,$2,$3,$4,TRUE)
-    `, [id, user.id, approved ? 'solution_approved' : 'solution_rejected',
-        approved ? 'Solução aprovada' : `Solução reprovada: ${rejection_reason}`]);
+    // Buscar ticket
+    const { rows: ticketRows } = await pool.query(
+      'SELECT ticket_number, department_id FROM tickets WHERE id = $1', [id]
+    );
+    const ticketNumber = ticketRows[0]?.ticket_number;
+    const deptId = ticketRows[0]?.department_id || 1;
 
-    await registerGoal(user.id, id, null, status);
+    const typeLabel = SOLUTION_TYPE_LABELS[sol.solution_type] || sol.solution_type;
 
-    res.json({ message: `Solução ${status}` });
+    // -------------------------------------------------------
+    // REPROVAÇÃO — qualquer nível pode reprovar
+    // -------------------------------------------------------
+    if (!approved) {
+      await pool.query(`
+        UPDATE ticket_solutions
+        SET status = 'reprovado',
+            approved_by = $1, approved_at = NOW(),
+            rejection_reason = $2
+        WHERE id = $3
+      `, [user.id, rejection_reason || 'Reprovado', solutionId]);
+
+      await pool.query(`
+        INSERT INTO ticket_history (ticket_id, user_id, action_type, new_value, is_internal)
+        VALUES ($1,$2,'solution_rejected',$3,TRUE)
+      `, [id, user.id, `[${typeLabel}] Reprovado: ${rejection_reason || '—'}` ]);
+
+      await registerGoal(user.id, id, null, 'reprovado');
+
+      const io = req.app.get('io');
+      if (io) io.emit('ticket_updated', { ticketId: id });
+
+      return res.json({ message: 'Solução reprovada' });
+    }
+
+    // -------------------------------------------------------
+    // APROVAÇÃO — lógica de dois níveis
+    // -------------------------------------------------------
+
+    // NÍVEL 1: Gestor aprova (primeira etapa)
+    if (sol.authorization_level === 'gestor' && ['gestor', 'diretor'].includes(user.role)) {
+
+      // Se requer diretor → avança para próximo nível
+      if (sol.requires_director && user.role === 'gestor') {
+        await pool.query(`
+          UPDATE ticket_solutions
+          SET authorization_level = 'diretor',
+              approved_by = $1, approved_at = NOW()
+          WHERE id = $2
+        `, [user.id, solutionId]);
+
+        // Notificar diretores
+        const { rows: directors } = await pool.query(
+          `SELECT id FROM users WHERE role = 'diretor' AND is_active = TRUE AND department_id = $1`,
+          [deptId]
+        );
+        for (const dir of directors) {
+          await pool.query(`
+            INSERT INTO notifications (user_id, title, message, type, related_ticket_id)
+            VALUES ($1,$2,$3,'solution',$4)
+          `, [
+            dir.id,
+            '🔐 Autorização de diretor necessária',
+            `Ticket #${ticketNumber}: solução de "${typeLabel}" aprovada pelo gestor, aguarda sua confirmação final.`,
+            id,
+          ]);
+          // Criar tarefa para o diretor
+          await pool.query(`
+            INSERT INTO tasks (title, description, ticket_id, assigned_to, created_by, status, priority)
+            VALUES ($1,$2,$3,$4,$5,'pendente','urgent')
+          `, [
+            `🔐 Confirmar autorização — ${typeLabel} | Ticket #${ticketNumber}`,
+            `Gestor ${user.name} aprovou. Aguarda confirmação do diretor para prosseguir.`,
+            id, dir.id, user.id,
+          ]);
+        }
+
+        await pool.query(`
+          INSERT INTO ticket_history (ticket_id, user_id, action_type, new_value, is_internal)
+          VALUES ($1,$2,'solution_approved',$3,TRUE)
+        `, [id, user.id, `[${typeLabel}] Aprovado pelo gestor — aguardando confirmação do diretor`]);
+
+        const io = req.app.get('io');
+        if (io) io.emit('ticket_updated', { ticketId: id });
+
+        return res.json({
+          message: 'Solução aprovada pelo gestor — aguardando confirmação do diretor',
+          next_level: 'diretor',
+        });
+      }
+
+      // Não requer diretor (ou é o próprio diretor aprovando diretamente) → aprovação final
+      await _finalizeApproval({ pool, id, solutionId, sol, user, ticketNumber, typeLabel, deptId });
+      const io = req.app.get('io');
+      if (io) io.emit('ticket_updated', { ticketId: id });
+      return res.json({ message: 'Solução aprovada e fluxo de execução iniciado' });
+    }
+
+    // NÍVEL 2: Diretor confirma
+    if (sol.authorization_level === 'diretor') {
+      if (user.role !== 'diretor') {
+        return res.status(403).json({ error: 'Esta solução requer confirmação do diretor' });
+      }
+
+      await pool.query(`
+        UPDATE ticket_solutions
+        SET director_approved_by = $1, director_approved_at = NOW(), authorization_level = 'concluido'
+        WHERE id = $2
+      `, [user.id, solutionId]);
+
+      await _finalizeApproval({ pool, id, solutionId, sol, user, ticketNumber, typeLabel, deptId });
+      const io = req.app.get('io');
+      if (io) io.emit('ticket_updated', { ticketId: id });
+      return res.json({ message: 'Solução confirmada pelo diretor — fluxo de execução iniciado' });
+    }
+
+    return res.status(400).json({ error: 'Esta solução já foi processada' });
+
   } catch (err) {
     next(err);
   }
 };
+
+// Finaliza aprovação: marca como aprovado, avança status do ticket e cria tarefas de execução
+async function _finalizeApproval({ pool, id, solutionId, sol, user, ticketNumber, typeLabel, deptId }) {
+  await pool.query(`
+    UPDATE ticket_solutions
+    SET status = 'aprovado', approved_by = COALESCE(approved_by, $1), approved_at = COALESCE(approved_at, NOW())
+    WHERE id = $2
+  `, [user.id, solutionId]);
+
+  // ── Ações automáticas por tipo de solução ──────────────────────────────
+  let newStatusId = null;
+  let executionTaskTitle = null;
+  let executionTaskDesc = null;
+
+  if (sol.solution_type === 'troca') {
+    // Avança para Logística/Envio (status 7)
+    newStatusId = 7;
+    executionTaskTitle = `📦 Executar TROCA de produto — Ticket #${ticketNumber}`;
+    executionTaskDesc = `Solução de troca aprovada. ${sol.description}${sol.cost_notes ? ' | ' + sol.cost_notes : ''}`;
+  } else if (sol.solution_type === 'reembolso') {
+    // Avança para Em Execução (status 6)
+    newStatusId = 6;
+    const valor = sol.cost_value ? `R$ ${parseFloat(sol.cost_value).toFixed(2)}` : 'valor a definir';
+    executionTaskTitle = `💰 Processar REEMBOLSO — ${valor} | Ticket #${ticketNumber}`;
+    executionTaskDesc = `Reembolso autorizado no valor de ${valor}. ${sol.description}${sol.cost_notes ? ' | ' + sol.cost_notes : ''}`;
+  } else if (sol.solution_type === 'reparo') {
+    newStatusId = 6; // Em Execução
+    executionTaskTitle = `🔧 Executar REPARO — Ticket #${ticketNumber}`;
+    executionTaskDesc = `Solução de reparo aprovada. ${sol.description}`;
+  } else if (sol.solution_type === 'cortesia') {
+    newStatusId = 6;
+    executionTaskTitle = `🎁 Processar CORTESIA — Ticket #${ticketNumber}`;
+    executionTaskDesc = `Cortesia aprovada. ${sol.description}${sol.cost_value ? ` | R$ ${parseFloat(sol.cost_value).toFixed(2)}` : ''}`;
+  } else {
+    newStatusId = 6; // Em Execução (genérico)
+    executionTaskTitle = `⚙️ Executar solução — Ticket #${ticketNumber}`;
+    executionTaskDesc = sol.description;
+  }
+
+  // Atualizar status do ticket
+  if (newStatusId) {
+    await pool.query(
+      'UPDATE tickets SET status_id = $1, updated_at = NOW() WHERE id = $2',
+      [newStatusId, id]
+    );
+  }
+
+  // Criar tarefa de execução para atendente/gestor do departamento
+  const { rows: assignees } = await pool.query(
+    `SELECT id FROM users WHERE role IN ('atendente','gestor') AND is_active = TRUE AND department_id = $1 ORDER BY role DESC LIMIT 1`,
+    [deptId]
+  );
+  if (assignees.length && executionTaskTitle) {
+    const priority = ['troca', 'reembolso'].includes(sol.solution_type) ? 'high' : 'normal';
+    await pool.query(`
+      INSERT INTO tasks (title, description, ticket_id, assigned_to, created_by, status, priority)
+      VALUES ($1,$2,$3,$4,$5,'pendente',$6)
+    `, [executionTaskTitle, executionTaskDesc, id, assignees[0].id, user.id, priority]);
+  }
+
+  // Registrar no histórico
+  await pool.query(`
+    INSERT INTO ticket_history (ticket_id, user_id, action_type, new_value, is_internal)
+    VALUES ($1,$2,'solution_approved',$3,TRUE)
+  `, [id, user.id, `[${typeLabel}] Solução aprovada — execução iniciada`]);
+
+  await pool.query(`
+    INSERT INTO goals (user_id, ticket_id, task_id, history_id, action_type, month, year)
+    VALUES ($1,$2,NULL,NULL,'aprovado',$3,$4)
+  `, [user.id, id, new Date().getMonth() + 1, new Date().getFullYear()]);
+}
 
 // LGPD - Anonymize ticket
 const anonymizeTicket = async (req, res, next) => {

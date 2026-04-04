@@ -5,13 +5,13 @@ import {
   Grid, Divider, CircularProgress, Avatar, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   FormControl, InputLabel, Select, MenuItem,
-  Alert,
+  Alert, Switch, FormControlLabel,
   List, ListItem, ListItemText, ListItemAvatar, Paper
 } from '@mui/material';
 import {
   AttachFile, ArrowBack,
   WhatsApp, CheckCircle, Cancel, Add,
-  Upload, Inventory
+  Upload, Inventory, Lightbulb
 } from '@mui/icons-material';
 import { ticketAPI, userAPI, taskAPI } from '../services/api';
 import { useSelector } from 'react-redux';
@@ -32,7 +32,32 @@ const STATUS_LIST = [
   { id: 10, name: 'Fechado/Arquivado', slug: 'fechado', color: '#9E9E9E' },
 ];
 
-// Status Ruler Component
+// Tipos de solução
+const SOLUTION_TYPES = [
+  { value: 'reparo',    label: '🔧 Reparo / Manutenção',      requiresDirector: false },
+  { value: 'troca',    label: '🔄 Troca de Produto',          requiresDirector: true  },
+  { value: 'reembolso',label: '💰 Reembolso',                 requiresDirector: true  },
+  { value: 'cortesia', label: '🎁 Cortesia / Bonificação',    requiresDirector: false },
+  { value: 'outro',    label: '📋 Outro',                     requiresDirector: false },
+];
+
+// Os ícones estão embutidos nos labels de SOLUTION_TYPES
+
+// Rótulos legíveis por action_type
+const ACTION_LABELS = {
+  ticket_created: { label: 'Ticket criado', icon: '🎫' },
+  status_change: { label: 'Status atualizado', icon: '⚡' },
+  field_updated: { label: 'Campo editado', icon: '✏️' },
+  task_created: { label: 'Tarefa criada', icon: '📋' },
+  task_completed: { label: 'Tarefa concluída', icon: '✅' },
+  solution_proposed: { label: 'Solução proposta', icon: '💡' },
+  solution_approved: { label: 'Solução aprovada', icon: '✅' },
+  solution_rejected: { label: 'Solução reprovada', icon: '❌' },
+  attachment: { label: 'Arquivo anexado', icon: '📎' },
+  note: { label: 'Nota adicionada', icon: '📝' },
+};
+
+// Status Ruler
 const StatusRuler = ({ currentStatusId }) => (
   <Box sx={{ mb: 2 }}>
     <Box sx={{ display: 'flex', gap: 0.5, mb: 0.5 }}>
@@ -41,8 +66,7 @@ const StatusRuler = ({ currentStatusId }) => (
           <Box sx={{
             flex: 1, height: 8, borderRadius: 2,
             bgcolor: s.id <= currentStatusId ? s.color : s.color + '25',
-            transition: 'all 0.3s',
-            cursor: 'default',
+            transition: 'all 0.3s', cursor: 'default',
           }} />
         </Tooltip>
       ))}
@@ -53,8 +77,8 @@ const StatusRuler = ({ currentStatusId }) => (
         label={STATUS_LIST.find(s => s.id === currentStatusId)?.name || 'Desconhecido'}
         size="small"
         sx={{
-          bgcolor: STATUS_LIST.find(s => s.id === currentStatusId)?.color + '20',
-          color: STATUS_LIST.find(s => s.id === currentStatusId)?.color,
+          bgcolor: (STATUS_LIST.find(s => s.id === currentStatusId)?.color || '#666') + '20',
+          color: STATUS_LIST.find(s => s.id === currentStatusId)?.color || '#666',
           fontWeight: 700, fontSize: 12
         }}
       />
@@ -63,13 +87,13 @@ const StatusRuler = ({ currentStatusId }) => (
   </Box>
 );
 
-// Status Update Dialog
+// Dialog: Atualizar Status
 const StatusUpdateDialog = ({ open, onClose, ticket, onSuccess }) => {
   const { user } = useSelector(s => s.auth);
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState({
     status_id: ticket?.status_id || 1,
-    ball_owner_id: user?.id || '',
+    ball_owner_id: '',
     note: '',
     is_internal: true,
   });
@@ -77,7 +101,7 @@ const StatusUpdateDialog = ({ open, onClose, ticket, onSuccess }) => {
   useEffect(() => {
     if (open) {
       setForm({ status_id: ticket?.status_id || 1, ball_owner_id: user?.id || '', note: '', is_internal: true });
-      userAPI.list().then(r => setUsers(r.data)).catch(() => {});
+      userAPI.list().then(r => setUsers(r.data.filter(u => ['atendente','gestor','diretor'].includes(u.role)))).catch(() => {});
     }
   }, [open, ticket, user]);
 
@@ -87,16 +111,14 @@ const StatusUpdateDialog = ({ open, onClose, ticket, onSuccess }) => {
       toast.success('Status atualizado! ⚽ Gol registrado!');
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch {
       toast.error('Erro ao atualizar status');
     }
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>
-        ⚡ Atualizar Status — #{ticket?.ticket_number}
-      </DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700 }}>⚡ Atualizar Status — #{ticket?.ticket_number}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid item xs={12}>
@@ -120,46 +142,149 @@ const StatusUpdateDialog = ({ open, onClose, ticket, onSuccess }) => {
               <InputLabel>⚽ Passar bola para</InputLabel>
               <Select value={form.ball_owner_id} label="⚽ Passar bola para"
                 onChange={e => setForm(p => ({ ...p, ball_owner_id: e.target.value }))}>
+                <MenuItem value="">— Manter comigo —</MenuItem>
                 {users.map(u => (
-                  <MenuItem key={u.id} value={u.id}>
-                    {u.name} ({u.role})
-                  </MenuItem>
+                  <MenuItem key={u.id} value={u.id}>{u.name} ({u.role})</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
           <Grid item xs={12}>
-            <TextField
-              fullWidth multiline rows={3} size="small"
-              label="Notificação interna (opcional)"
-              placeholder="Escreva uma nota sobre esta atualização..."
-              value={form.note}
-              onChange={e => setForm(p => ({ ...p, note: e.target.value }))}
-            />
+            <TextField fullWidth multiline rows={3} size="small"
+              label="Nota (opcional)" placeholder="Escreva uma nota sobre esta atualização..."
+              value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} />
           </Grid>
           <Grid item xs={12}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Visibilidade</InputLabel>
-              <Select value={form.is_internal} label="Visibilidade"
-                onChange={e => setForm(p => ({ ...p, is_internal: e.target.value }))}>
-                <MenuItem value={true}>🔒 Interno (só equipe)</MenuItem>
-                <MenuItem value={false}>👁️ Visível ao cliente</MenuItem>
-              </Select>
-            </FormControl>
+            <FormControlLabel
+              control={
+                <Switch checked={form.is_internal}
+                  onChange={e => setForm(p => ({ ...p, is_internal: e.target.checked }))} />
+              }
+              label={form.is_internal ? '🔒 Nota interna (só equipe)' : '👁️ Visível ao cliente'}
+            />
           </Grid>
         </Grid>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" onClick={handleSubmit} sx={{ fontWeight: 700 }}>
-          ⚡ Atualizar
+        <Button variant="contained" onClick={handleSubmit} sx={{ fontWeight: 700 }}>⚡ Atualizar</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// Dialog: Propor Solução
+const SolutionDialog = ({ open, onClose, ticketId, onSuccess }) => {
+  const emptyForm = { description: '', solution_type: 'reparo', has_cost: false, cost_value: '', cost_notes: '' };
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (open) setForm(emptyForm); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectedType = SOLUTION_TYPES.find(t => t.value === form.solution_type);
+  const requiresDirector = selectedType?.requiresDirector || false;
+
+  const handleSubmit = async () => {
+    if (!form.description.trim()) { toast.error('Descrição da solução é obrigatória'); return; }
+    setSaving(true);
+    try {
+      await ticketAPI.addSolution(ticketId, {
+        ...form,
+        cost_value: form.has_cost ? parseFloat(form.cost_value) || 0 : null,
+      });
+      toast.success('Solução proposta! Aguardando autorização. ⚽');
+      onSuccess();
+      onClose();
+    } catch {
+      toast.error('Erro ao propor solução');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700 }}>💡 Propor Solução</DialogTitle>
+      <DialogContent>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+
+          {/* Tipo de solução */}
+          <Grid item xs={12}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Tipo de Solução *</InputLabel>
+              <Select value={form.solution_type} label="Tipo de Solução *"
+                onChange={e => setForm(p => ({ ...p, solution_type: e.target.value }))}>
+                {SOLUTION_TYPES.map(t => (
+                  <MenuItem key={t.value} value={t.value}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      <span>{t.label}</span>
+                      {t.requiresDirector && (
+                        <Chip label="Requer Diretor" size="small" color="warning" sx={{ ml: 1, height: 18, fontSize: 10 }} />
+                      )}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Alerta de dois níveis */}
+          {requiresDirector && (
+            <Grid item xs={12}>
+              <Alert severity="warning" sx={{ py: 0.5 }}>
+                <Typography variant="caption">
+                  🔐 <strong>{selectedType.label}</strong> requer autorização em <strong>dois níveis</strong>:
+                  gestor aprova → diretor confirma antes de executar.
+                </Typography>
+              </Alert>
+            </Grid>
+          )}
+
+          {/* Descrição */}
+          <Grid item xs={12}>
+            <TextField fullWidth multiline rows={4} size="small" label="Descrição da solução *"
+              placeholder="Descreva detalhadamente a solução proposta..."
+              value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+          </Grid>
+
+          {/* Tem custo? */}
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={
+                <Switch checked={form.has_cost}
+                  onChange={e => setForm(p => ({ ...p, has_cost: e.target.checked }))} />
+              }
+              label="Solução envolve custo financeiro?"
+            />
+          </Grid>
+          {form.has_cost && (
+            <>
+              <Grid item xs={6}>
+                <TextField fullWidth size="small" label="Valor (R$)" type="number"
+                  inputProps={{ min: 0, step: '0.01' }}
+                  value={form.cost_value}
+                  onChange={e => setForm(p => ({ ...p, cost_value: e.target.value }))} />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField fullWidth size="small" label="Observações financeiras"
+                  value={form.cost_notes}
+                  onChange={e => setForm(p => ({ ...p, cost_notes: e.target.value }))} />
+              </Grid>
+            </>
+          )}
+        </Grid>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button variant="contained" color="success" onClick={handleSubmit} disabled={saving}>
+          {saving ? <CircularProgress size={18} /> : '💡 Propor Solução'}
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-// Task Creation Dialog
+// Dialog: Criar Tarefa
 const TaskDialog = ({ open, onClose, ticketId, users, onSuccess }) => {
   const { user } = useSelector(s => s.auth);
   const [form, setForm] = useState({ title: '', description: '', assigned_to: '', priority: 'normal', due_date: '' });
@@ -183,7 +308,7 @@ const TaskDialog = ({ open, onClose, ticketId, users, onSuccess }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>Nova Tarefa</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700 }}>📋 Nova Tarefa</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid item xs={12}>
@@ -209,10 +334,10 @@ const TaskDialog = ({ open, onClose, ticketId, users, onSuccess }) => {
               <InputLabel>Prioridade</InputLabel>
               <Select value={form.priority} label="Prioridade"
                 onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
-                <MenuItem value="low">Baixa</MenuItem>
-                <MenuItem value="normal">Normal</MenuItem>
-                <MenuItem value="high">Alta</MenuItem>
-                <MenuItem value="urgent">Urgente</MenuItem>
+                <MenuItem value="low">🔵 Baixa</MenuItem>
+                <MenuItem value="normal">⚪ Normal</MenuItem>
+                <MenuItem value="high">🟠 Alta</MenuItem>
+                <MenuItem value="urgent">🔴 Urgente</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -233,7 +358,9 @@ const TaskDialog = ({ open, onClose, ticketId, users, onSuccess }) => {
   );
 };
 
+// ============================================================
 // Main Component
+// ============================================================
 const TicketDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -242,11 +369,13 @@ const TicketDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
   const [statusDialog, setStatusDialog] = useState(false);
+  const [solutionDialog, setSolutionDialog] = useState(false);
   const [taskDialog, setTaskDialog] = useState(false);
   const [fileInput, setFileInput] = useState(null);
   const [internalUsers, setInternalUsers] = useState([]);
 
   const internalRoles = ['atendente', 'gestor', 'diretor'];
+  const canEdit = internalRoles.includes(user?.role);
 
   const loadTicket = async () => {
     try {
@@ -262,7 +391,7 @@ const TicketDetailPage = () => {
 
   useEffect(() => {
     if (user && internalRoles.includes(user.role)) {
-      userAPI.list().then(r => setInternalUsers(r.data || [])).catch(() => {});
+      userAPI.list().then(r => setInternalUsers(r.data.filter(u => internalRoles.includes(u.role)))).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -283,16 +412,32 @@ const TicketDetailPage = () => {
 
   const handleApproveSolution = async (solutionId, approved, reason) => {
     try {
-      await ticketAPI.approveSolution(id, solutionId, { approved, rejection_reason: reason });
-      toast.success(approved ? 'Solução aprovada!' : 'Solução reprovada');
+      const { data } = await ticketAPI.approveSolution(id, solutionId, { approved, rejection_reason: reason });
+      if (approved) {
+        if (data.next_level === 'diretor') {
+          toast.success('✅ Aprovado! Aguardando confirmação do diretor.');
+        } else {
+          toast.success('✅ Solução aprovada — execução iniciada!');
+        }
+      } else {
+        toast.success('❌ Solução reprovada');
+      }
       loadTicket();
     } catch {
-      toast.error('Erro ao processar');
+      toast.error('Erro ao processar solução');
     }
   };
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
   if (!ticket) return <Box sx={{ mt: 4 }}><Alert severity="error">Ticket não encontrado</Alert></Box>;
+
+  const pendingSolutions = ticket.solutions?.filter(s => s.status === 'pendente') || [];
+  // Soluções que o usuário atual precisa autorizar agora
+  const myPendingActions = pendingSolutions.filter(s =>
+    (s.authorization_level === 'gestor' && ['gestor','diretor'].includes(user?.role)) ||
+    (s.authorization_level === 'diretor' && user?.role === 'diretor')
+  );
+  const awaitingDirectorCount = pendingSolutions.filter(s => s.authorization_level === 'diretor').length;
 
   return (
     <Box>
@@ -303,24 +448,44 @@ const TicketDetailPage = () => {
         </IconButton>
         <Box sx={{ flexGrow: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="h5" fontWeight={700}>
-              #{ticket.ticket_number}
-            </Typography>
+            <Typography variant="h5" fontWeight={700}>#{ticket.ticket_number}</Typography>
             <Chip label={ticket.status_name} size="small"
               sx={{ bgcolor: (ticket.status_color || '#666') + '20', color: ticket.status_color || '#666', fontWeight: 700 }} />
-            <Chip label={ticket.priority === 'urgent' ? '🔴 Urgente' : ticket.priority === 'high' ? '🟠 Alta' : '🔵 Normal'} size="small" variant="outlined" />
+            <Chip label={
+              ticket.priority === 'urgent' ? '🔴 Urgente' :
+              ticket.priority === 'high' ? '🟠 Alta' :
+              ticket.priority === 'low' ? '🔵 Baixa' : '⚪ Normal'
+            } size="small" variant="outlined" />
             {ticket.brand_name && <Chip label={ticket.brand_name} size="small" variant="outlined" />}
           </Box>
           <Typography variant="body1" sx={{ mt: 0.5 }}>{ticket.title}</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
-          {internalRoles.includes(user?.role) && (
-            <Button variant="contained" onClick={() => setStatusDialog(true)} sx={{ fontWeight: 700 }}>
-              ⚡ Atualizar Status
-            </Button>
+        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {canEdit && (
+            <>
+              <Button variant="outlined" color="success" startIcon={<Lightbulb />}
+                onClick={() => setSolutionDialog(true)} size="small">
+                Propor Solução
+              </Button>
+              <Button variant="contained" onClick={() => setStatusDialog(true)} sx={{ fontWeight: 700 }}>
+                ⚡ Atualizar Status
+              </Button>
+            </>
           )}
         </Box>
       </Box>
+
+      {/* Alertas de soluções pendentes */}
+      {myPendingActions.length > 0 && user?.role === 'diretor' && awaitingDirectorCount > 0 && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          🔐 {awaitingDirectorCount} solução(ões) aguardando sua <strong>confirmação de diretor</strong> — veja a aba <strong>Principal</strong>
+        </Alert>
+      )}
+      {myPendingActions.length > 0 && ['gestor','diretor'].includes(user?.role) && awaitingDirectorCount === 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          💡 {myPendingActions.length} solução(ões) aguardando sua autorização — veja a aba <strong>Principal</strong>
+        </Alert>
+      )}
 
       {/* Status Ruler */}
       <Card sx={{ mb: 2 }}>
@@ -333,14 +498,15 @@ const TicketDetailPage = () => {
         {/* Left — Main content */}
         <Grid item xs={12} md={8}>
           <Card>
-            <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+            <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
+              variant="scrollable" scrollButtons="auto">
               <Tab label="Principal" />
               <Tab label="Anexos" />
               <Tab label={`Tarefas (${ticket.tasks?.length || 0})`} />
               <Tab label={`Histórico (${ticket.history?.length || 0})`} />
             </Tabs>
 
-            {/* Tab 0: Principal */}
+            {/* ===================== Tab 0: Principal ===================== */}
             {tab === 0 && (
               <CardContent>
                 <Grid container spacing={2}>
@@ -362,17 +528,14 @@ const TicketDetailPage = () => {
 
                 <Divider sx={{ my: 2 }} />
 
-                {/* Products */}
+                {/* Produtos */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Typography variant="subtitle2" fontWeight={600}>
                     <Inventory fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
                     Produtos ({ticket.products?.length || 0})
                   </Typography>
-                  {internalRoles.includes(user?.role) && (
-                    <Button size="small" startIcon={<Add />} onClick={() => {}}>Adicionar</Button>
-                  )}
                 </Box>
-                {ticket.products?.map(p => (
+                {ticket.products?.length > 0 ? ticket.products.map(p => (
                   <Paper key={p.id} variant="outlined" sx={{ p: 1.5, mb: 1, borderRadius: 2 }}>
                     <Grid container spacing={1}>
                       <Grid item xs={6} sm={3}>
@@ -401,71 +564,181 @@ const TicketDetailPage = () => {
                       </Grid>
                     </Grid>
                   </Paper>
-                ))}
+                )) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>Nenhum produto vinculado</Typography>
+                )}
 
-                {/* Blocks */}
-                {ticket.blocks?.map(block => (
-                  <Box key={block.id} sx={{ mt: 2 }}>
-                    <Divider sx={{ mb: 1 }} />
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                      {block.block_type_slug === 'solucao-proposta' && '💡 '}
-                      {block.block_type_slug === 'faturamento' && '💰 '}
-                      {block.block_type_slug === 'logistica' && '📦 '}
-                      {block.block_type_name}
-                    </Typography>
-                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                        {JSON.stringify(block.content, null, 2)}
+                {/* Soluções */}
+                {(ticket.solutions?.length > 0 || canEdit) && (
+                  <>
+                    <Divider sx={{ my: 2 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        💡 Soluções Propostas ({ticket.solutions?.length || 0})
                       </Typography>
-                    </Paper>
-                  </Box>
-                ))}
-
-                {/* Solutions */}
-                {ticket.solutions?.length > 0 && (
-                  <Box sx={{ mt: 2 }}>
-                    <Divider sx={{ mb: 1 }} />
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>💡 Soluções Propostas</Typography>
-                    {ticket.solutions.map(sol => (
-                      <Paper key={sol.id} variant="outlined" sx={{ p: 2, mb: 1.5, borderRadius: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="body2">{sol.description}</Typography>
-                            {sol.has_cost && (
-                              <Chip label={`Custo: R$ ${parseFloat(sol.cost_value).toFixed(2)}`} size="small"
-                                color="warning" sx={{ mt: 0.5 }} />
-                            )}
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                              Proposta por: {sol.proposed_by_name} • {format(new Date(sol.created_at), 'dd/MM/yyyy HH:mm')}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ ml: 2 }}>
+                      {canEdit && (
+                        <Button size="small" startIcon={<Add />} variant="outlined" color="success"
+                          onClick={() => setSolutionDialog(true)}>
+                          Propor
+                        </Button>
+                      )}
+                    </Box>
+                    {ticket.solutions?.length > 0 ? ticket.solutions.map(sol => {
+                      const typeLabel = SOLUTION_TYPES.find(t => t.value === sol.solution_type)?.label || sol.solution_type;
+                      const isAwaitingGestor  = sol.status === 'pendente' && sol.authorization_level === 'gestor';
+                      const isAwaitingDirector = sol.status === 'pendente' && sol.authorization_level === 'diretor';
+                      const canActAsGestor  = isAwaitingGestor  && ['gestor','diretor'].includes(user?.role);
+                      const canActAsDirector = isAwaitingDirector && user?.role === 'diretor';
+                      const borderColor = sol.status === 'aprovado' ? 'success.main'
+                                        : sol.status === 'reprovado' ? 'error.main'
+                                        : isAwaitingDirector ? 'warning.main' : 'divider';
+                      return (
+                        <Paper key={sol.id} variant="outlined" sx={{ p: 2, mb: 1.5, borderRadius: 2, borderColor }}>
+                          {/* Cabeçalho: tipo + status */}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                              <Chip
+                                label={typeLabel}
+                                size="small"
+                                sx={{ fontWeight: 700, fontSize: 11,
+                                  bgcolor: sol.solution_type === 'troca' ? '#FF980020' :
+                                           sol.solution_type === 'reembolso' ? '#F4433620' :
+                                           sol.solution_type === 'cortesia' ? '#9C27B020' : '#1565C020',
+                                  color:   sol.solution_type === 'troca' ? '#E65100' :
+                                           sol.solution_type === 'reembolso' ? '#C62828' :
+                                           sol.solution_type === 'cortesia' ? '#6A1B9A' : '#0D47A1',
+                                }}
+                              />
+                              {sol.requires_director && (
+                                <Chip label="🔐 Requer Diretor" size="small" color="warning" variant="outlined" sx={{ height: 20, fontSize: 10 }} />
+                              )}
+                            </Box>
                             <Chip
-                              label={sol.status}
-                              size="small"
-                              color={sol.status === 'aprovado' ? 'success' : sol.status === 'reprovado' ? 'error' : 'default'}
+                              label={
+                                sol.status === 'aprovado' ? '✅ Aprovado' :
+                                sol.status === 'reprovado' ? '❌ Reprovado' :
+                                isAwaitingDirector ? '⏳ Aguard. Diretor' : '⏳ Aguard. Gestor'
+                              }
+                              color={sol.status === 'aprovado' ? 'success' : sol.status === 'reprovado' ? 'error' : isAwaitingDirector ? 'warning' : 'default'}
+                              size="small" sx={{ flexShrink: 0 }}
                             />
                           </Box>
-                        </Box>
-                        {sol.status === 'pendente' && ['gestor','diretor'].includes(user?.role) && (
-                          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                            <Button size="small" variant="contained" color="success" startIcon={<CheckCircle />}
-                              onClick={() => handleApproveSolution(sol.id, true)}>Aprovar</Button>
-                            <Button size="small" variant="outlined" color="error" startIcon={<Cancel />}
-                              onClick={() => handleApproveSolution(sol.id, false, 'Reprovado')}>Reprovar</Button>
-                          </Box>
-                        )}
-                      </Paper>
+
+                          {/* Descrição */}
+                          <Typography variant="body2" sx={{ mb: 1 }}>{sol.description}</Typography>
+
+                          {/* Custo */}
+                          {sol.has_cost && (
+                            <Box sx={{ display: 'flex', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                              <Chip label={`💰 Custo: R$ ${parseFloat(sol.cost_value || 0).toFixed(2)}`}
+                                size="small" color="warning" />
+                              {sol.cost_notes && (
+                                <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                                  {sol.cost_notes}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+
+                          {/* Autores e datas */}
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Proposta por: <strong>{sol.proposed_by_name}</strong> • {format(new Date(sol.created_at), 'dd/MM/yyyy HH:mm')}
+                          </Typography>
+                          {sol.approved_by_name && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {sol.status === 'reprovado' ? '❌ Reprovado' : '✅ Aprovado (nível 1)'} por: <strong>{sol.approved_by_name}</strong>
+                            </Typography>
+                          )}
+                          {sol.director_approved_by && (
+                            <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
+                              🔐 Confirmado pelo diretor — execução autorizada
+                            </Typography>
+                          )}
+
+                          {/* Motivo de reprovação */}
+                          {sol.rejection_reason && (
+                            <Alert severity="error" sx={{ mt: 1, py: 0 }}>Motivo: {sol.rejection_reason}</Alert>
+                          )}
+                          {sol.director_rejection_reason && (
+                            <Alert severity="error" sx={{ mt: 1, py: 0 }}>Reprovado pelo diretor: {sol.director_rejection_reason}</Alert>
+                          )}
+
+                          {/* Ações de autorização — Nível 1: gestor */}
+                          {canActAsGestor && (
+                            <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
+                              <Button size="small" variant="contained" color="success" startIcon={<CheckCircle />}
+                                onClick={() => handleApproveSolution(sol.id, true)}>
+                                {sol.requires_director ? 'Aprovar (enviar ao Diretor)' : 'Aprovar'}
+                              </Button>
+                              <Button size="small" variant="outlined" color="error" startIcon={<Cancel />}
+                                onClick={() => {
+                                  const reason = window.prompt('Motivo da reprovação:');
+                                  if (reason !== null) handleApproveSolution(sol.id, false, reason || 'Reprovado');
+                                }}>
+                                Reprovar
+                              </Button>
+                            </Box>
+                          )}
+
+                          {/* Ações de autorização — Nível 2: diretor */}
+                          {canActAsDirector && (
+                            <Box sx={{ mt: 1.5 }}>
+                              <Alert severity="warning" sx={{ mb: 1, py: 0.5 }}>
+                                <Typography variant="caption">
+                                  🔐 Esta solução foi aprovada pelo gestor e aguarda sua <strong>confirmação final</strong> como diretor.
+                                </Typography>
+                              </Alert>
+                              <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button size="small" variant="contained" color="success" startIcon={<CheckCircle />}
+                                  onClick={() => handleApproveSolution(sol.id, true)}>
+                                  Confirmar e Autorizar Execução
+                                </Button>
+                                <Button size="small" variant="outlined" color="error" startIcon={<Cancel />}
+                                  onClick={() => {
+                                    const reason = window.prompt('Motivo da reprovação pelo diretor:');
+                                    if (reason !== null) handleApproveSolution(sol.id, false, reason || 'Reprovado pelo diretor');
+                                  }}>
+                                  Reprovar
+                                </Button>
+                              </Box>
+                            </Box>
+                          )}
+                        </Paper>
+                      );
+                    }) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                        Nenhuma solução proposta ainda
+                      </Typography>
+                    )}
+                  </>
+                )}
+
+                {/* Blocos */}
+                {ticket.blocks?.length > 0 && (
+                  <>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>📦 Blocos do Ticket</Typography>
+                    {ticket.blocks.map(block => (
+                      <Box key={block.id} sx={{ mb: 1.5 }}>
+                        <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
+                          {block.block_type_name}
+                        </Typography>
+                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, mt: 0.5 }}>
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: 12 }}>
+                            {typeof block.content === 'string' ? block.content : JSON.stringify(block.content, null, 2)}
+                          </Typography>
+                        </Paper>
+                      </Box>
                     ))}
-                  </Box>
+                  </>
                 )}
               </CardContent>
             )}
 
-            {/* Tab 1: Attachments */}
+            {/* ===================== Tab 1: Anexos ===================== */}
             {tab === 1 && (
               <CardContent>
-                {internalRoles.includes(user?.role) && (
+                {canEdit && (
                   <Box sx={{ mb: 2 }}>
                     <input type="file" multiple hidden ref={r => setFileInput(r)} onChange={handleFileUpload} />
                     <Button variant="outlined" startIcon={<Upload />} onClick={() => fileInput?.click()}>
@@ -483,120 +756,134 @@ const TicketDetailPage = () => {
                             {att.original_name}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {(att.size_bytes / 1024).toFixed(0)} KB
+                            {(att.size_bytes / 1024).toFixed(0)} KB • {att.uploaded_by_name}
                           </Typography>
                         </Box>
-                        <Button size="small" href={att.url} target="_blank" rel="noreferrer">
-                          Ver
-                        </Button>
+                        <Button size="small" href={att.url} target="_blank" rel="noreferrer">Ver</Button>
                       </Paper>
                     </Grid>
                   ))}
                   {!ticket.attachments?.length && (
                     <Grid item xs={12}>
-                      <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                        Nenhum anexo ainda
-                      </Typography>
+                      <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>Nenhum anexo ainda</Typography>
                     </Grid>
                   )}
                 </Grid>
               </CardContent>
             )}
 
-            {/* Tab 2: Tasks */}
+            {/* ===================== Tab 2: Tarefas ===================== */}
             {tab === 2 && (
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                  {internalRoles.includes(user?.role) && (
+                  {canEdit && (
                     <Button size="small" variant="outlined" startIcon={<Add />} onClick={() => setTaskDialog(true)}>
                       Nova Tarefa
                     </Button>
                   )}
                 </Box>
-                {ticket.tasks?.map(task => (
-                  <Paper key={task.id} variant="outlined" sx={{ p: 2, mb: 1.5, borderRadius: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="body2" fontWeight={600}>{task.title}</Typography>
-                        {task.description && <Typography variant="caption" color="text.secondary">{task.description}</Typography>}
-                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
-                          <Chip label={task.status} size="small"
-                            color={task.status === 'concluida' ? 'success' : task.status === 'em_andamento' ? 'warning' : 'default'} />
-                          {task.assigned_name && (
-                            <Chip label={`→ ${task.assigned_name}`} size="small" variant="outlined" />
+                {ticket.tasks?.map(task => {
+                  const statusColor = task.status === 'concluida' ? 'success' : task.status === 'em_andamento' ? 'warning' : 'default';
+                  return (
+                    <Paper key={task.id} variant="outlined" sx={{ p: 2, mb: 1.5, borderRadius: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography variant="body2" fontWeight={600}>{task.title}</Typography>
+                          {task.description && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {task.description}
+                            </Typography>
                           )}
+                          <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <Chip label={task.status} size="small" color={statusColor} />
+                            {task.assigned_name && (
+                              <Chip label={`→ ${task.assigned_name}`} size="small" variant="outlined" />
+                            )}
+                            {task.due_date && (
+                              <Typography variant="caption" color="text.secondary">
+                                📅 {format(new Date(task.due_date), 'dd/MM/yyyy')}
+                              </Typography>
+                            )}
+                          </Box>
                         </Box>
+                        {task.status !== 'concluida' && (
+                          <Tooltip title="Lembrar via WhatsApp">
+                            <IconButton size="small" color="success"
+                              onClick={async () => {
+                                try {
+                                  const { data } = await taskAPI.whatsapp(task.id);
+                                  window.open(data.whatsapp_url, '_blank');
+                                } catch { toast.error('Usuário sem número de telefone cadastrado'); }
+                              }}>
+                              <WhatsApp fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
-                      <Tooltip title="Lembrar via WhatsApp">
-                        <IconButton size="small" color="success"
-                          onClick={async () => {
-                            try {
-                              const { data } = await taskAPI.whatsapp(task.id);
-                              window.open(data.whatsapp_url, '_blank');
-                            } catch { toast.error('Sem número de telefone'); }
-                          }}>
-                          <WhatsApp fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Paper>
-                ))}
+                    </Paper>
+                  );
+                })}
                 {!ticket.tasks?.length && (
                   <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                    Nenhuma tarefa vinculada
+                    Nenhuma tarefa vinculada a este ticket
                   </Typography>
                 )}
               </CardContent>
             )}
 
-            {/* Tab 3: History */}
+            {/* ===================== Tab 3: Histórico ===================== */}
             {tab === 3 && (
               <CardContent>
                 <List dense>
-                  {ticket.history?.map(h => (
-                    <React.Fragment key={h.id}>
-                      <ListItem alignItems="flex-start" sx={{ px: 0 }}>
-                        <ListItemAvatar>
-                          <Avatar sx={{ width: 32, height: 32, fontSize: 13, bgcolor: 'primary.main' }}>
-                            {h.user_name?.charAt(0) || '?'}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                              <Typography variant="body2" fontWeight={600}>{h.user_name || 'Sistema'}</Typography>
-                              {h.status_to_name && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  {h.status_from_name && (
-                                    <>
-                                      <Chip label={h.status_from_name} size="small" sx={{ height: 18, fontSize: 10 }} />
-                                      <Typography variant="caption">→</Typography>
-                                    </>
-                                  )}
-                                  <Chip label={h.status_to_name} size="small" color="primary" sx={{ height: 18, fontSize: 10 }} />
-                                </Box>
-                              )}
-                              {h.ball_to_name && (
-                                <Typography variant="caption" sx={{ color: 'success.main' }}>
-                                  ⚽ → {h.ball_to_name}
+                  {ticket.history?.map(h => {
+                    const actionInfo = ACTION_LABELS[h.action_type] || { label: h.action_type, icon: '📌' };
+                    return (
+                      <React.Fragment key={h.id}>
+                        <ListItem alignItems="flex-start" sx={{ px: 0 }}>
+                          <ListItemAvatar>
+                            <Avatar sx={{ width: 32, height: 32, fontSize: 13, bgcolor: 'primary.main' }}>
+                              {h.user_name?.charAt(0) || '?'}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <Typography variant="body2" fontWeight={600}>{h.user_name || 'Sistema'}</Typography>
+                                <Chip label={`${actionInfo.icon} ${actionInfo.label}`} size="small"
+                                  sx={{ height: 20, fontSize: 10 }} variant="outlined" />
+                                {h.status_from_name && h.status_to_name && (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Chip label={h.status_from_name} size="small" sx={{ height: 18, fontSize: 10 }} />
+                                    <Typography variant="caption">→</Typography>
+                                    <Chip label={h.status_to_name} size="small" color="primary" sx={{ height: 18, fontSize: 10 }} />
+                                  </Box>
+                                )}
+                                {h.ball_to_name && (
+                                  <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
+                                    ⚽ → {h.ball_to_name}
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
+                            secondary={
+                              <Box>
+                                {h.note && (
+                                  <Typography variant="body2" sx={{ mt: 0.5, fontStyle: 'italic', color: 'text.secondary' }}>
+                                    "{h.note}"
+                                  </Typography>
+                                )}
+                                <Typography variant="caption" color="text.secondary">
+                                  {format(new Date(h.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                  {' · '}{h.is_internal ? '🔒 Interno' : '👁️ Público'}
                                 </Typography>
-                              )}
-                            </Box>
-                          }
-                          secondary={
-                            <Box>
-                              {h.note && <Typography variant="body2" sx={{ mt: 0.5 }}>{h.note}</Typography>}
-                              <Typography variant="caption" color="text.secondary">
-                                {format(new Date(h.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                                {' · '}{h.is_internal ? '🔒 Interno' : '👁️ Público'}
-                              </Typography>
-                            </Box>
-                          }
-                        />
-                      </ListItem>
-                      <Divider component="li" />
-                    </React.Fragment>
-                  ))}
+                              </Box>
+                            }
+                          />
+                        </ListItem>
+                        <Divider component="li" />
+                      </React.Fragment>
+                    );
+                  })}
                   {!ticket.history?.length && (
                     <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
                       Sem histórico ainda
@@ -610,7 +897,7 @@ const TicketDetailPage = () => {
 
         {/* Right — Sidebar info */}
         <Grid item xs={12} md={4}>
-          {/* Ball & Assigned */}
+          {/* Bola & Atendente */}
           <Card sx={{ mb: 2 }}>
             <CardContent>
               <Typography variant="subtitle2" fontWeight={600} gutterBottom>⚽ Bola do Ticket</Typography>
@@ -622,12 +909,12 @@ const TicketDetailPage = () => {
                 </Box>
               </Box>
               <Divider sx={{ mb: 1.5 }} />
-              <Typography variant="caption" color="text.secondary">Atendente</Typography>
-              <Typography variant="body2">{ticket.assigned_name || 'Não atribuído'}</Typography>
+              <Typography variant="caption" color="text.secondary">Atendente designado</Typography>
+              <Typography variant="body2">{ticket.assigned_name || '—'}</Typography>
             </CardContent>
           </Card>
 
-          {/* Client info */}
+          {/* Cliente */}
           <Card sx={{ mb: 2 }}>
             <CardContent>
               <Typography variant="subtitle2" fontWeight={600} gutterBottom>👤 Cliente</Typography>
@@ -645,7 +932,7 @@ const TicketDetailPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="body2">{ticket.client_phone || '—'}</Typography>
                     {ticket.client_phone && (
-                      <Tooltip title="WhatsApp">
+                      <Tooltip title="Abrir WhatsApp">
                         <IconButton size="small" color="success"
                           href={`https://wa.me/55${ticket.client_phone?.replace(/\D/g,'')}?text=Olá! Sobre seu ticket %23${ticket.ticket_number}`}
                           target="_blank">
@@ -665,7 +952,7 @@ const TicketDetailPage = () => {
             </CardContent>
           </Card>
 
-          {/* Dates */}
+          {/* Datas */}
           <Card>
             <CardContent>
               <Typography variant="subtitle2" fontWeight={600} gutterBottom>📅 Datas</Typography>
@@ -681,13 +968,17 @@ const TicketDetailPage = () => {
                 {ticket.resolved_at && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">Resolvido em</Typography>
-                    <Typography variant="body2" color="success.main">{format(new Date(ticket.resolved_at), 'dd/MM/yyyy HH:mm')}</Typography>
+                    <Typography variant="body2" color="success.main">
+                      {format(new Date(ticket.resolved_at), 'dd/MM/yyyy HH:mm')}
+                    </Typography>
                   </Box>
                 )}
                 {ticket.auto_close_at && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">Fecha automaticamente</Typography>
-                    <Typography variant="body2" color="warning.main">{format(new Date(ticket.auto_close_at), 'dd/MM/yyyy')}</Typography>
+                    <Typography variant="body2" color="warning.main">
+                      {format(new Date(ticket.auto_close_at), 'dd/MM/yyyy')}
+                    </Typography>
                   </Box>
                 )}
               </Box>
@@ -696,22 +987,15 @@ const TicketDetailPage = () => {
         </Grid>
       </Grid>
 
-      {/* Status Dialog */}
-      <StatusUpdateDialog
-        open={statusDialog}
-        onClose={() => setStatusDialog(false)}
-        ticket={ticket}
-        onSuccess={loadTicket}
-      />
+      {/* Dialogs */}
+      <StatusUpdateDialog open={statusDialog} onClose={() => setStatusDialog(false)}
+        ticket={ticket} onSuccess={loadTicket} />
 
-      {/* Task Dialog */}
-      <TaskDialog
-        open={taskDialog}
-        onClose={() => setTaskDialog(false)}
-        ticketId={id}
-        users={internalUsers}
-        onSuccess={loadTicket}
-      />
+      <SolutionDialog open={solutionDialog} onClose={() => setSolutionDialog(false)}
+        ticketId={id} onSuccess={loadTicket} />
+
+      <TaskDialog open={taskDialog} onClose={() => setTaskDialog(false)}
+        ticketId={id} users={internalUsers} onSuccess={loadTicket} />
     </Box>
   );
 };

@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, Card, CardContent, Grid, Button, TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress, Table, TableHead, TableRow, TableCell, TableBody, Chip } from '@mui/material';
 import { Download } from '@mui/icons-material';
 import { reportAPI, brandAPI, ticketAPI } from '../services/api';
+import api from '../services/api';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 const ReportsPage = () => {
   const [statuses, setStatuses] = useState([]);
@@ -21,9 +23,24 @@ const ReportsPage = () => {
     try {
       const params = { ...filters };
       Object.keys(params).forEach(k => !params[k] && delete params[k]);
-      if (fmt === 'csv') { params.format = 'csv'; window.open(`${process.env.REACT_APP_API_URL}/reports/tickets?${new URLSearchParams(params)}`, '_blank'); return; }
+      if (fmt === 'csv') {
+        params.format = 'csv';
+        const response = await api.get('/reports/tickets', { params, responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `relatorio-tickets-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success('CSV exportado!');
+        return;
+      }
       const { data } = await reportAPI.tickets(params);
       setResults(data.data || []);
+    } catch {
+      toast.error('Erro ao gerar relatório');
     } finally { setLoading(false); }
   };
 
