@@ -90,4 +90,18 @@ router.get('/meta/statuses', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Add internal/public note to history
+router.post('/:id/notes', ticketAccess, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { note, is_internal = true } = req.body;
+    if (!note?.trim()) return res.status(400).json({ error: 'Nota é obrigatória' });
+    const { rows } = await pool.query(`
+      INSERT INTO ticket_history (ticket_id, user_id, action_type, note, is_internal)
+      VALUES ($1, $2, 'note', $3, $4) RETURNING *
+    `, [id, req.user.id, note.trim(), is_internal]);
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

@@ -58,6 +58,7 @@ export const ticketAPI = {
   }),
   addBlock: (id, data) => api.post(`/tickets/${id}/blocks`, data),
   updateBlock: (id, blockId, data) => api.patch(`/tickets/${id}/blocks/${blockId}`, data),
+  addNote: (id, data) => api.post(`/tickets/${id}/notes`, data),
   getStatuses: () => api.get('/tickets/meta/statuses'),
   anonymize: (id) => api.post(`/tickets/${id}/anonymize`),
 };
@@ -147,6 +148,17 @@ export const configAPI = {
   list: () => api.get('/config'),
   update: (key, value) => api.patch(`/config/${key}`, { value }),
   blockTypes: () => api.get('/config/block-types'),
+  getEmailConfig: () => api.get('/config/email'),
+  saveEmailConfig: (data) => api.post('/config/email', data),
+  testEmail: (data) => api.post('/config/email/test', data),
+};
+
+// Clients
+export const clientAPI = {
+  list: (params) => api.get('/clients', { params }),
+  create: (data) => api.post('/clients', data),
+  update: (id, data) => api.patch(`/clients/${id}`, data),
+  search: (q) => api.get('/clients', { params: { search: q } }),
 };
 
 // Public (no auth)
