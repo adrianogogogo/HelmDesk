@@ -3,10 +3,9 @@ import {
   Box, Typography, Card, CardContent, Tabs, Tab, TextField, Button,
   Table, TableHead, TableRow, TableCell, TableBody, Chip, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions, Alert,
-  Tooltip, Divider, List, ListItem, ListItemText,
-  ListItemSecondaryAction
+  Tooltip, Divider, Grid, CircularProgress, Switch, FormControlLabel
 } from '@mui/material';
-import { Save, Add, Edit, Settings, Email, Tune } from '@mui/icons-material';
+import { Save, Add, Edit, Settings, Email, Tune, Send } from '@mui/icons-material';
 import api, { configAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -36,6 +35,15 @@ const ConfigPage = () => {
   const [editingBlock, setEditingBlock] = useState(null);
   const [error, setError] = useState('');
 
+  // Email config state
+  const [emailConfig, setEmailConfig] = useState({
+    smtp_host: '', smtp_port: '587', smtp_user: '', smtp_pass: '',
+    smtp_secure: 'false', email_from: '', email_from_name: 'RelmDesk'
+  });
+  const [emailTestTo, setEmailTestTo] = useState('');
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailTesting, setEmailTesting] = useState(false);
+
   useEffect(() => {
     configAPI.list().then(r => {
       const map = {};
@@ -43,6 +51,9 @@ const ConfigPage = () => {
       setConfigs(map);
     }).catch(() => {});
     configAPI.blockTypes().then(r => setBlockTypes(r.data || [])).catch(() => {});
+    configAPI.getEmailConfig().then(r => {
+      setEmailConfig(prev => ({ ...prev, ...r.data }));
+    }).catch(() => {});
   }, []);
 
   const saveConfig = async (key) => {
@@ -52,6 +63,26 @@ const ConfigPage = () => {
     } catch {
       toast.error('Erro ao salvar configuração');
     }
+  };
+
+  const handleSaveEmailConfig = async () => {
+    setEmailSaving(true);
+    try {
+      await configAPI.saveEmailConfig(emailConfig);
+      toast.success('✅ Configurações de e-mail salvas!');
+    } catch {
+      toast.error('Erro ao salvar configurações de e-mail');
+    } finally { setEmailSaving(false); }
+  };
+
+  const handleTestEmail = async () => {
+    setEmailTesting(true);
+    try {
+      const { data } = await configAPI.testEmail({ to: emailTestTo || undefined });
+      toast.success(`📧 ${data.message}`);
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Falha no envio do e-mail de teste');
+    } finally { setEmailTesting(false); }
   };
 
   const handleBlockSave = async () => {
@@ -181,33 +212,115 @@ const ConfigPage = () => {
         </Card>
       </TabPanel>
 
-      {/* Tab: Email (V2) */}
+      {/* Tab: Email Config */}
       <TabPanel value={tab} index={2}>
         <Card>
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <Email color="disabled" sx={{ fontSize: 40 }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+              <Email color="primary" sx={{ fontSize: 36 }} />
               <Box>
-                <Typography variant="h6" fontWeight={600}>Templates de E-mail</Typography>
-                <Chip label="Disponível em V2" size="small" color="warning" sx={{ mt: 0.5 }} />
+                <Typography variant="h6" fontWeight={600}>Configuração de E-mail (SMTP)</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Configure o servidor SMTP para envio de e-mails automáticos no futuro
+                </Typography>
               </Box>
             </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Os templates de e-mail automático serão configurados na versão 2 do RelmDesk.
-              O sistema possui um servidor SMTP configurado, mas os envios automáticos estão desativados por ora.
-            </Typography>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Templates previstos para V2:</Typography>
-            <List dense>
-              {['Novo ticket aberto', 'Atualização de status', 'Solução proposta', 'Ticket resolvido', 'Ticket arquivado', 'Convite de cadastro (cliente sem login)', 'Lembrete de tarefa'].map(t => (
-                <ListItem key={t} sx={{ py: 0.5 }}>
-                  <ListItemText primary={<Typography variant="body2">📧 {t}</Typography>} />
-                  <ListItemSecondaryAction>
-                    <Chip label="V2" size="small" variant="outlined" />
-                  </ListItemSecondaryAction>
-                </ListItem>
+
+            <Alert severity="info" sx={{ mb: 3 }}>
+              <strong>Fase atual:</strong> A estrutura de e-mail está implementada. Os envios automáticos
+              serão ativados na V2. Você já pode configurar o SMTP e testar o envio manual.
+            </Alert>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={8}>
+                <TextField fullWidth size="small" label="Servidor SMTP (host)"
+                  placeholder="smtp.gmail.com ou smtp.office365.com"
+                  value={emailConfig.smtp_host}
+                  onChange={e => setEmailConfig(p => ({ ...p, smtp_host: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField fullWidth size="small" label="Porta"
+                  placeholder="587" type="number"
+                  value={emailConfig.smtp_port}
+                  onChange={e => setEmailConfig(p => ({ ...p, smtp_port: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth size="small" label="Usuário (e-mail de autenticação)"
+                  type="email" placeholder="noreply@suaempresa.com.br"
+                  value={emailConfig.smtp_user}
+                  onChange={e => setEmailConfig(p => ({ ...p, smtp_user: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth size="small" label="Senha / App Password"
+                  type="password"
+                  value={emailConfig.smtp_pass}
+                  onChange={e => setEmailConfig(p => ({ ...p, smtp_pass: e.target.value }))}
+                  helperText="Para Gmail: use senha de app em myaccount.google.com/apppasswords" />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth size="small" label="Endereço de origem (From)"
+                  type="email" placeholder="helpdesk@relmbikes.com.br"
+                  value={emailConfig.email_from}
+                  onChange={e => setEmailConfig(p => ({ ...p, email_from: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth size="small" label="Nome de exibição (From Name)"
+                  placeholder="RelmDesk — Suporte"
+                  value={emailConfig.email_from_name}
+                  onChange={e => setEmailConfig(p => ({ ...p, email_from_name: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={emailConfig.smtp_secure === 'true'}
+                      onChange={e => setEmailConfig(p => ({ ...p, smtp_secure: e.target.checked ? 'true' : 'false' }))}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body2">SSL/TLS (porta 465)</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Desative para STARTTLS (portas 587/25)
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Grid>
+            </Grid>
+
+            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+              <Button variant="contained" startIcon={emailSaving ? <CircularProgress size={16} color="inherit" /> : <Save />}
+                onClick={handleSaveEmailConfig} disabled={emailSaving}>
+                Salvar Configurações
+              </Button>
+            </Box>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>🧪 Testar envio</Typography>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+              <TextField size="small" label="E-mail de destino para teste"
+                value={emailTestTo}
+                onChange={e => setEmailTestTo(e.target.value)}
+                placeholder="seu@email.com"
+                sx={{ flexGrow: 1 }}
+                helperText="Deixe em branco para usar seu e-mail de login" />
+              <Button variant="outlined" startIcon={emailTesting ? <CircularProgress size={16} /> : <Send />}
+                onClick={handleTestEmail} disabled={emailTesting} sx={{ mt: 0.5 }}>
+                Enviar Teste
+              </Button>
+            </Box>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>📋 Templates previstos para V2</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {['Novo ticket aberto', 'Atualização de status', 'Solução proposta', 'Ticket resolvido',
+                'Ticket arquivado', 'Convite de cadastro (cliente)', 'Lembrete de tarefa'].map(t => (
+                <Chip key={t} label={`📧 ${t}`} size="small" variant="outlined" />
               ))}
-            </List>
+            </Box>
           </CardContent>
         </Card>
       </TabPanel>

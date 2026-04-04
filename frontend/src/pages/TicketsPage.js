@@ -5,14 +5,22 @@ import {
   Box, Card, CardContent, Typography, Button, TextField, Chip,
   Table, TableBody, TableCell, TableHead, TableRow, TablePagination,
   Select, MenuItem, FormControl, InputLabel, Grid, IconButton,
-  Tooltip, CircularProgress
+  Tooltip, CircularProgress, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
-import { Add, FilterList, Refresh, OpenInNew } from '@mui/icons-material';
-import { ticketAPI, brandAPI } from '../services/api';
+import { Add, FilterList, Refresh, OpenInNew, FilterAlt } from '@mui/icons-material';
+import { ticketAPI, brandAPI, userAPI } from '../services/api';
 import { setTickets } from '../store/slices/ticketSlice';
 import { format } from 'date-fns';
 
-const PRIORITIES = { urgent: { label: 'Urgente', color: '#F44336' }, high: { label: 'Alta', color: '#FF9800' }, normal: { label: 'Normal', color: '#2196F3' }, low: { label: 'Baixa', color: '#9E9E9E' } };
+const PRIORITIES = {
+  urgent: { label: 'Urgente', color: '#F44336' },
+  high:   { label: 'Alta',    color: '#FF9800' },
+  normal: { label: 'Normal',  color: '#2196F3' },
+  low:    { label: 'Baixa',   color: '#9E9E9E' },
+};
+
+// IDs dos status considerados "finalizados" (excluídos no filtro "Ativos")
+const CLOSED_STATUS_IDS = [9, 10]; // Resolvido, Fechado/Arquivado
 
 const TicketsPage = () => {
   const dispatch = useDispatch();
@@ -25,14 +33,30 @@ const TicketsPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [statuses, setStatuses] = useState([]);
   const [brands, setBrands] = useState([]);
-  const [localFilters, setLocalFilters] = useState({ status_id: '', brand_id: '', priority: '', search: '' });
+  const [internalUsers, setInternalUsers] = useState([]);
+  const [activePreset, setActivePreset] = useState('all'); // 'all' | 'active'
+  const [localFilters, setLocalFilters] = useState({
+    status_id: '',
+    brand_id: '',
+    priority: '',
+    search: '',
+    assigned_to: '',
+  });
 
-  const fetchData = async () => {
+  const buildParams = (overrides = {}) => {
+    const base = { page: page + 1, limit: rowsPerPage, ...localFilters, ...overrides };
+    // Filtro "Ativos": excluir tickets resolvidos/fechados
+    if (activePreset === 'active' && !base.status_id) {
+      base.exclude_status_ids = CLOSED_STATUS_IDS.join(',');
+    }
+    Object.keys(base).forEach(k => (base[k] === '' || base[k] == null) && delete base[k]);
+    return base;
+  };
+
+  const fetchData = async (overrides = {}) => {
     setLoading(true);
     try {
-      const params = { page: page + 1, limit: rowsPerPage, ...localFilters };
-      Object.keys(params).forEach(k => !params[k] && delete params[k]);
-      const { data } = await ticketAPI.list(params);
+      const { data } = await ticketAPI.list(buildParams(overrides));
       dispatch(setTickets(data));
     } finally {
       setLoading(false);
@@ -40,14 +64,28 @@ const TicketsPage = () => {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchData(); }, [page, rowsPerPage]);
+  useEffect(() => { fetchData(); }, [page, rowsPerPage, activePreset]);
 
   useEffect(() => {
     ticketAPI.getStatuses().then(r => setStatuses(r.data)).catch(() => {});
     brandAPI.list().then(r => setBrands(r.data)).catch(() => {});
+    if (['atendente', 'gestor', 'diretor'].includes(user?.role)) {
+      userAPI.list().then(r =>
+        setInternalUsers(r.data.filter(u => ['atendente', 'gestor', 'diretor'].includes(u.role)))
+      ).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const applyFilters = () => { setPage(0); fetchData(); };
+  const applyFilters = () => { setPage(0); fetchData({ page: 1 }); };
+
+  const clearFilters = () => {
+    setLocalFilters({ status_id: '', brand_id: '', priority: '', search: '', assigned_to: '' });
+    setActivePreset('all');
+    setPage(0);
+  };
+
+  const hasActiveFilters = Object.values(localFilters).some(Boolean) || activePreset === 'active';
 
   return (
     <Box>
@@ -63,13 +101,37 @@ const TicketsPage = () => {
         )}
       </Box>
 
-      {/* Filters */}
+      {/* Filtros */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ py: 2 }}>
+          {/* Linha 1: preset de atividade */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <FilterAlt fontSize="small" color="action" />
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>Vista rápida:</Typography>
+            <ToggleButtonGroup
+              value={activePreset}
+              exclusive
+              onChange={(_, v) => { if (v) { setActivePreset(v); setPage(0); } }}
+              size="small"
+            >
+              <ToggleButton value="all" sx={{ px: 2, fontSize: 12 }}>Todos</ToggleButton>
+              <ToggleButton value="active" sx={{ px: 2, fontSize: 12 }}>
+                🟢 Ativos
+              </ToggleButton>
+            </ToggleButtonGroup>
+            {hasActiveFilters && (
+              <Button size="small" variant="text" color="error" onClick={clearFilters}>
+                Limpar filtros
+              </Button>
+            )}
+          </Box>
+
+          {/* Linha 2: filtros detalhados */}
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
-                fullWidth size="small" label="Buscar..." value={localFilters.search}
+                fullWidth size="small" label="Buscar..."
+                value={localFilters.search}
                 onChange={e => setLocalFilters(p => ({ ...p, search: e.target.value }))}
                 onKeyDown={e => e.key === 'Enter' && applyFilters()}
               />
@@ -100,17 +162,33 @@ const TicketsPage = () => {
                 <Select value={localFilters.priority} label="Prioridade"
                   onChange={e => setLocalFilters(p => ({ ...p, priority: e.target.value }))}>
                   <MenuItem value="">Todas</MenuItem>
-                  {Object.entries(PRIORITIES).map(([k, v]) => <MenuItem key={k} value={k}>{v.label}</MenuItem>)}
+                  {Object.entries(PRIORITIES).map(([k, v]) => (
+                    <MenuItem key={k} value={k}>{v.label}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={6} md={2}>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button variant="contained" onClick={applyFilters} fullWidth size="small">
-                  <FilterList /> Filtrar
+            {['atendente','gestor','diretor'].includes(user?.role) && (
+              <Grid item xs={6} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Responsável</InputLabel>
+                  <Select value={localFilters.assigned_to} label="Responsável"
+                    onChange={e => setLocalFilters(p => ({ ...p, assigned_to: e.target.value }))}>
+                    <MenuItem value="">Todos</MenuItem>
+                    {internalUsers.map(u => (
+                      <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            <Grid item xs={6} md={1}>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Button variant="contained" onClick={applyFilters} fullWidth size="small" sx={{ minWidth: 0 }}>
+                  <FilterList />
                 </Button>
                 <Tooltip title="Atualizar">
-                  <IconButton size="small" onClick={fetchData}><Refresh /></IconButton>
+                  <IconButton size="small" onClick={() => fetchData()}><Refresh /></IconButton>
                 </Tooltip>
               </Box>
             </Grid>
@@ -118,7 +196,7 @@ const TicketsPage = () => {
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* Tabela */}
       <Card>
         <Table>
           <TableHead>
@@ -129,7 +207,7 @@ const TicketsPage = () => {
               <TableCell>Marca</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Prioridade</TableCell>
-              <TableCell>Bola</TableCell>
+              <TableCell>Responsável</TableCell>
               <TableCell>Data</TableCell>
               <TableCell />
             </TableRow>
@@ -182,7 +260,7 @@ const TicketsPage = () => {
                   <TableCell>
                     <Tooltip title={`Bola: ${ticket.ball_owner_name || '—'}`}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <span style={{ fontSize: 16 }}>⚽</span>
+                        <span style={{ fontSize: 14 }}>⚽</span>
                         <Typography variant="caption">{ticket.ball_owner_name?.split(' ')[0] || '—'}</Typography>
                       </Box>
                     </Tooltip>

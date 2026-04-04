@@ -8,7 +8,8 @@ const getTickets = async (req, res, next) => {
     const {
       status_id, brand_id, assigned_to, priority,
       search, store_id, page = 1, limit = 20,
-      sort = 'created_at', order = 'DESC'
+      sort = 'created_at', order = 'DESC',
+      exclude_status_ids   // novo: "9,10" para filtro "Ativos"
     } = req.query;
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -28,6 +29,10 @@ const getTickets = async (req, res, next) => {
     }
 
     if (status_id) { params.push(status_id); whereConditions.push(`t.status_id = $${params.length}`); }
+    if (exclude_status_ids && !status_id) {
+      const ids = exclude_status_ids.split(',').map(Number).filter(Boolean);
+      if (ids.length) whereConditions.push(`t.status_id NOT IN (${ids.join(',')})`);
+    }
     if (brand_id) { params.push(brand_id); whereConditions.push(`t.brand_id = $${params.length}`); }
     if (assigned_to) { params.push(assigned_to); whereConditions.push(`t.assigned_to = $${params.length}`); }
     if (priority) { params.push(priority); whereConditions.push(`t.priority = $${params.length}`); }
