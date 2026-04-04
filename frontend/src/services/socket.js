@@ -15,7 +15,6 @@ export const initSocket = (userId, dispatch) => {
   });
 
   socket.on('connect', () => {
-    console.log('🔌 Socket connected');
     socket.emit('authenticate', userId);
   });
 
@@ -32,9 +31,7 @@ export const initSocket = (userId, dispatch) => {
     notificationAPI.list().then(r => dispatch(setNotifications(r.data))).catch(() => {});
   });
 
-  socket.on('disconnect', () => {
-    console.log('🔌 Socket disconnected');
-  });
+  socket.on('disconnect', () => { /* reconectando automaticamente */ });
 
   return socket;
 };

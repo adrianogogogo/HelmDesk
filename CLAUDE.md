@@ -231,8 +231,14 @@ HelmDesk/
 - `GET /api/auth/departments` — lista departamentos (público)
 - `POST /api/auth/login` — login
 - `GET /api/auth/me` — usuário atual
-- `POST /api/auth/register` — criar usuário (gestor/diretor)
+- `POST /api/auth/register` — criar usuário (gestor/diretor) [alias legado]
 - `POST /api/auth/change-password` — alterar senha
+
+### Usuários
+- `GET /api/users` — listar usuários (gestor/diretor)
+- `POST /api/users` — criar usuário (gestor/diretor) — delega para authController.register
+- `PATCH /api/users/:id` — atualizar usuário (suporta troca de senha com bcrypt)
+- `DELETE /api/users/:id` — anonimizar usuário (LGPD, apenas diretor)
 
 ### Tickets
 - `GET /api/tickets` — listar com filtros (status, brand, priority, search, page, limit)
@@ -404,7 +410,11 @@ bash scripts/deploy.sh
 - Todas as mensagens do backend em pt-BR (incluindo config, notifications, products, stores, tickets)
 - ClientsPage usando endpoint `/api/clients` correto (com contagem de tickets)
 - NewTicketPage com validação, erro feedback e limite de 3 produtos
-- TicketDetailPage com dialog de criação de tarefa na aba Tarefas
+- TicketDetailPage completo: dialog de status, dialog de solução, dialog de tarefa, histórico com ícones
+- UsersPage: usa `userAPI.create` → `POST /api/users` (gestor/diretor), suporte a troca de senha
+- DashboardPage: tickets recentes incluem `client_name` (join com tabela users)
+- Backend users.js: `POST /api/users` cria usuário; `PATCH /api/users/:id` suporta atualização de senha com bcrypt
+- searchController: vulnerabilidade de injeção SQL corrigida (visibilityWhere agora usa parâmetros)
 
 ### 🔄 Em andamento / Pendente
 - Validação funcional end-to-end (login, tickets, fluxos)
@@ -445,7 +455,9 @@ bash scripts/deploy.sh
 | 2026-04-02 | `e6569e5` | Renomear Tooltip do recharts para RechartsTooltip |
 | 2026-04-02 | `31ffdab` | Melhorias UX (ClientsPage, NewTicketPage, TicketDetailPage) + pt-BR |
 | 2026-04-02 | `dd5a25e` | Corrigir layout lado esquerdo quebrado (espaçador flex + pt-BR restante) |
+| 2026-04-03 | `b7b692e` | Corrigir bugs Kanban (whatsapp_url) e Gamificação (RechartsTooltip) |
+| 2026-04-03 | (pendente) | TicketDetailPage completo, UsersPage via /api/users, dashboard client_name, correção SQL injection na busca |
 
 ---
 
-*Última atualização: 2026-04-02*
+*Última atualização: 2026-04-03*
