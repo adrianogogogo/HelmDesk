@@ -55,15 +55,17 @@ const getDashboard = async (req, res, next) => {
     `);
 
     // Recent tickets
+    // client_name vem direto da coluna t.client_name (texto livre)
+    // ou do usuário vinculado via client_user_id, se houver
     const { rows: recentTickets } = await pool.query(`
       SELECT t.id, t.ticket_number, t.title, t.created_at, t.priority,
              ts.name as status_name, ts.color as status_color,
              b.name as brand_name,
-             u.name as client_name
+             COALESCE(u.name, t.client_name) as client_name
       FROM tickets t
       LEFT JOIN ticket_statuses ts ON ts.id = t.status_id
       LEFT JOIN brands b ON b.id = t.brand_id
-      LEFT JOIN users u ON u.id = t.client_id
+      LEFT JOIN users u ON u.id = t.client_user_id
       WHERE t.is_anonymized = FALSE
       ORDER BY t.created_at DESC
       LIMIT 10

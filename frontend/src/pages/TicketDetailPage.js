@@ -358,6 +358,35 @@ const TaskDialog = ({ open, onClose, ticketId, users, onSuccess }) => {
   );
 };
 
+// Dialog: Reprovar Solução (substitui window.prompt — evita aria-hidden warning)
+const RejectDialog = ({ open, onClose, onConfirm, isDirector }) => {
+  const [reason, setReason] = useState('');
+  const handleClose = () => { setReason(''); onClose(); };
+  const handleConfirm = () => { onConfirm(reason || 'Reprovado'); setReason(''); onClose(); };
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth disableRestoreFocus>
+      <DialogTitle sx={{ fontWeight: 700 }}>
+        ❌ {isDirector ? 'Reprovar como Diretor' : 'Reprovar Solução'}
+      </DialogTitle>
+      <DialogContent>
+        <TextField
+          fullWidth autoFocus size="small" multiline rows={3}
+          label="Motivo da reprovação (opcional)"
+          placeholder="Descreva o motivo..."
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          sx={{ mt: 1 }}
+          onKeyDown={e => e.key === 'Enter' && e.ctrlKey && handleConfirm()}
+        />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={handleClose}>Cancelar</Button>
+        <Button variant="contained" color="error" onClick={handleConfirm}>Reprovar</Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 // ============================================================
 // Main Component
 // ============================================================
@@ -373,6 +402,8 @@ const TicketDetailPage = () => {
   const [taskDialog, setTaskDialog] = useState(false);
   const [fileInput, setFileInput] = useState(null);
   const [internalUsers, setInternalUsers] = useState([]);
+  // RejectDialog state — substitui window.prompt para evitar aria-hidden warning
+  const [rejectDialog, setRejectDialog] = useState({ open: false, solutionId: null, isDirector: false });
 
   const internalRoles = ['atendente', 'gestor', 'diretor'];
   const canEdit = internalRoles.includes(user?.role);
@@ -671,10 +702,7 @@ const TicketDetailPage = () => {
                                 {sol.requires_director ? 'Aprovar (enviar ao Diretor)' : 'Aprovar'}
                               </Button>
                               <Button size="small" variant="outlined" color="error" startIcon={<Cancel />}
-                                onClick={() => {
-                                  const reason = window.prompt('Motivo da reprovação:');
-                                  if (reason !== null) handleApproveSolution(sol.id, false, reason || 'Reprovado');
-                                }}>
+                                onClick={() => setRejectDialog({ open: true, solutionId: sol.id, isDirector: false })}>
                                 Reprovar
                               </Button>
                             </Box>
@@ -694,10 +722,7 @@ const TicketDetailPage = () => {
                                   Confirmar e Autorizar Execução
                                 </Button>
                                 <Button size="small" variant="outlined" color="error" startIcon={<Cancel />}
-                                  onClick={() => {
-                                    const reason = window.prompt('Motivo da reprovação pelo diretor:');
-                                    if (reason !== null) handleApproveSolution(sol.id, false, reason || 'Reprovado pelo diretor');
-                                  }}>
+                                  onClick={() => setRejectDialog({ open: true, solutionId: sol.id, isDirector: true })}>
                                   Reprovar
                                 </Button>
                               </Box>
@@ -996,6 +1021,14 @@ const TicketDetailPage = () => {
 
       <TaskDialog open={taskDialog} onClose={() => setTaskDialog(false)}
         ticketId={id} users={internalUsers} onSuccess={loadTicket} />
+
+      {/* RejectDialog — substitui window.prompt para corrigir aria-hidden warning */}
+      <RejectDialog
+        open={rejectDialog.open}
+        isDirector={rejectDialog.isDirector}
+        onClose={() => setRejectDialog({ open: false, solutionId: null, isDirector: false })}
+        onConfirm={(reason) => handleApproveSolution(rejectDialog.solutionId, false, reason)}
+      />
     </Box>
   );
 };
