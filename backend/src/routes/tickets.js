@@ -12,6 +12,14 @@ const { v4: uuidv4 } = require('uuid');
 
 router.use(authenticate);
 
+// Statuses list — DEVE vir ANTES de /:id para não ser capturado pelo parâmetro dinâmico
+router.get('/meta/statuses', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM ticket_statuses ORDER BY sort_order');
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 router.get('/', getTickets);
 router.post('/', createTicket);
 router.get('/:id', ticketAccess, getTicketById);
@@ -79,14 +87,6 @@ router.patch('/:id/blocks/:blockId', ticketAccess, async (req, res, next) => {
       [JSON.stringify(content), req.user.id, blockId, id]
     );
     res.json({ message: 'Bloco atualizado' });
-  } catch (err) { next(err); }
-});
-
-// Statuses list
-router.get('/meta/statuses', async (req, res, next) => {
-  try {
-    const { rows } = await pool.query('SELECT * FROM ticket_statuses ORDER BY sort_order');
-    res.json(rows);
   } catch (err) { next(err); }
 });
 

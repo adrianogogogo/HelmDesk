@@ -25,9 +25,10 @@ const search = async (req, res, next) => {
     }
 
     const { rows } = await pool.query(`
-      SELECT DISTINCT
+      SELECT DISTINCT ON (t.updated_at, t.id)
         t.id, t.ticket_number, t.title, t.client_name, t.client_email, t.client_phone,
-        t.created_at, ts.name as status_name, ts.color as status_color, ts.slug as status_slug,
+        t.created_at, t.updated_at,
+        ts.name as status_name, ts.color as status_color, ts.slug as status_slug,
         b.name as brand_name,
         'ticket' as result_type
       FROM tickets t
@@ -47,7 +48,7 @@ const search = async (req, res, next) => {
           COALESCE(tp.serial_number, '') ILIKE $1 OR
           COALESCE(tp.product_name, '')  ILIKE $1
         )
-      ORDER BY t.updated_at DESC
+      ORDER BY t.updated_at DESC, t.id
       LIMIT $2
     `, params);
 
@@ -81,8 +82,9 @@ const suggest = async (req, res, next) => {
     }
 
     const { rows } = await pool.query(`
-      SELECT DISTINCT
+      SELECT DISTINCT ON (t.updated_at, t.id)
         t.id, t.ticket_number, t.title, t.client_name,
+        t.updated_at,
         ts.name as status_name, ts.color as status_color
       FROM tickets t
       LEFT JOIN ticket_statuses ts ON ts.id = t.status_id
@@ -95,7 +97,7 @@ const suggest = async (req, res, next) => {
           t.client_email  ILIKE $1 OR
           t.client_phone  ILIKE $1
         )
-      ORDER BY t.updated_at DESC
+      ORDER BY t.updated_at DESC, t.id
       LIMIT 8
     `, params);
 
