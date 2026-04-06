@@ -40,23 +40,32 @@ const TicketsPage = () => {
     brand_id: '',
     priority: '',
     search: '',
-    assigned_to: '',
+    ball_owner_id: '',  // filtra por responsável (ball owner)
   });
 
-  const buildParams = (overrides = {}) => {
-    const base = { page: page + 1, limit: rowsPerPage, ...localFilters, ...overrides };
+  const buildParams = (filtersOverride = localFilters, pageOverride = page, presetOverride = activePreset) => {
+    const base = {
+      page: pageOverride + 1,
+      limit: rowsPerPage,
+      ...filtersOverride,
+    };
     // Filtro "Ativos": excluir tickets resolvidos/fechados
-    if (activePreset === 'active' && !base.status_id) {
+    if (presetOverride === 'active' && !base.status_id) {
       base.exclude_status_ids = CLOSED_STATUS_IDS.join(',');
     }
     Object.keys(base).forEach(k => (base[k] === '' || base[k] == null) && delete base[k]);
     return base;
   };
 
-  const fetchData = async (overrides = {}) => {
+  const fetchData = async (filtersOverride, pageOverride, presetOverride) => {
     setLoading(true);
     try {
-      const { data } = await ticketAPI.list(buildParams(overrides));
+      const params = buildParams(
+        filtersOverride  !== undefined ? filtersOverride  : localFilters,
+        pageOverride     !== undefined ? pageOverride     : page,
+        presetOverride   !== undefined ? presetOverride   : activePreset
+      );
+      const { data } = await ticketAPI.list(params);
       dispatch(setTickets(data));
     } finally {
       setLoading(false);
@@ -64,7 +73,7 @@ const TicketsPage = () => {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchData(); }, [page, rowsPerPage, activePreset]);
+  useEffect(() => { fetchData(localFilters, page, activePreset); }, [page, rowsPerPage, activePreset]);
 
   useEffect(() => {
     ticketAPI.getStatuses().then(r => setStatuses(r.data)).catch(() => {});
@@ -77,12 +86,17 @@ const TicketsPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const applyFilters = () => { setPage(0); fetchData({ page: 1 }); };
+  const applyFilters = () => {
+    setPage(0);
+    fetchData(localFilters, 0, activePreset);
+  };
 
   const clearFilters = () => {
-    setLocalFilters({ status_id: '', brand_id: '', priority: '', search: '', assigned_to: '' });
+    const cleared = { status_id: '', brand_id: '', priority: '', search: '', ball_owner_id: '' };
+    setLocalFilters(cleared);
     setActivePreset('all');
     setPage(0);
+    fetchData(cleared, 0, 'all');
   };
 
   const hasActiveFilters = Object.values(localFilters).some(Boolean) || activePreset === 'active';
@@ -171,9 +185,9 @@ const TicketsPage = () => {
             {['atendente','gestor','diretor'].includes(user?.role) && (
               <Grid item xs={6} md={2}>
                 <FormControl fullWidth size="small">
-                  <InputLabel>Responsável</InputLabel>
-                  <Select value={localFilters.assigned_to} label="Responsável"
-                    onChange={e => setLocalFilters(p => ({ ...p, assigned_to: e.target.value }))}>
+                  <InputLabel>Responsável ⚽</InputLabel>
+                  <Select value={localFilters.ball_owner_id} label="Responsável ⚽"
+                    onChange={e => setLocalFilters(p => ({ ...p, ball_owner_id: e.target.value }))}>
                     <MenuItem value="">Todos</MenuItem>
                     {internalUsers.map(u => (
                       <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>

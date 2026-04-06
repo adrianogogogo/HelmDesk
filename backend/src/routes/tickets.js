@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, authorize, ticketAccess } = require('../middlewares/auth');
+const { authenticate, authorize, ticketAccess, internalOnly } = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 const {
   getTickets, getTicketById, createTicket, updateStatus, updateTicket,
@@ -16,7 +16,7 @@ router.get('/', getTickets);
 router.post('/', createTicket);
 router.get('/:id', ticketAccess, getTicketById);
 router.patch('/:id', ticketAccess, updateTicket);
-router.patch('/:id/status', ticketAccess, updateStatus);
+router.patch('/:id/status', ticketAccess, internalOnly, updateStatus);
 
 // Products
 router.post('/:id/products', ticketAccess, addProduct);

@@ -3,7 +3,7 @@ import {
   Box, Typography, Button, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, FormControl, InputLabel,
-  IconButton, Tooltip, Avatar, Grid, Paper, Divider
+  IconButton, Tooltip, Avatar, Grid, Paper, Divider, Link
 } from '@mui/material';
 import {
   DndContext, rectIntersection, PointerSensor,
@@ -16,11 +16,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   Add, WhatsApp, Edit, Delete, ConfirmationNumber,
-  DragIndicator, CalendarToday, Person, CheckCircle
+  DragIndicator, CalendarToday, Person, CheckCircle, OpenInNew, Close
 } from '@mui/icons-material';
 import { taskAPI, userAPI } from '../services/api';
 import { useDispatch, useSelector } from 'react-redux';
 import { setKanban, moveTask } from '../store/slices/taskSlice';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -39,7 +40,7 @@ const PRIORITIES = {
 };
 
 // ─── Card individual (sortable) ───────────────────────────────
-const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, isDragOverlay }) => {
+const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, onView, isDragOverlay }) => {
   const {
     attributes, listeners, setNodeRef,
     transform, transition, isDragging,
@@ -77,16 +78,13 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, isDragO
 
       <Box sx={{ p: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
-          {/* Handle de drag — apenas esta área ativa o drag */}
+          {/* Handle de drag */}
           <Box
             {...attributes}
             {...listeners}
             sx={{
-              color: 'text.disabled',
-              cursor: 'grab',
-              mt: 0.3,
-              flexShrink: 0,
-              touchAction: 'none',
+              color: 'text.disabled', cursor: 'grab', mt: 0.3,
+              flexShrink: 0, touchAction: 'none',
               '&:active': { cursor: 'grabbing' },
             }}
           >
@@ -100,7 +98,8 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, isDragO
                 <Chip
                   label={`#${task.ticket_number}`} size="small"
                   icon={<ConfirmationNumber sx={{ fontSize: '11px !important' }} />}
-                  sx={{ height: 18, fontSize: 10, bgcolor: '#1565C015', color: '#1565C0', fontWeight: 700 }}
+                  onClick={(e) => { e.stopPropagation(); onView && onView('ticket', task); }}
+                  sx={{ height: 18, fontSize: 10, bgcolor: '#1565C015', color: '#1565C0', fontWeight: 700, cursor: 'pointer' }}
                 />
               )}
               <Chip
@@ -109,8 +108,12 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, isDragO
               />
             </Box>
 
-            {/* Título */}
-            <Typography variant="body2" fontWeight={700} sx={{ lineHeight: 1.3, mb: 0.4 }}>
+            {/* Título — clicável para ver detalhes */}
+            <Typography
+              variant="body2" fontWeight={700}
+              sx={{ lineHeight: 1.3, mb: 0.4, cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+              onClick={() => onView && onView('task', task)}
+            >
               {task.title}
             </Typography>
 
@@ -118,8 +121,8 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, isDragO
             {task.description && (
               <Typography variant="caption" color="text.secondary"
                 sx={{ display: 'block', mb: 0.8, lineHeight: 1.4 }}>
-                {task.description.length > 90
-                  ? task.description.substring(0, 90) + '…'
+                {task.description.length > 80
+                  ? task.description.substring(0, 80) + '…'
                   : task.description}
               </Typography>
             )}
@@ -128,7 +131,6 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, isDragO
 
             {/* Footer: avatar + data + ações */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {/* Assignee + data */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                 {task.assigned_name ? (
                   <Tooltip title={task.assigned_name}>
@@ -162,7 +164,6 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, isDragO
 
               {/* Ações */}
               <Box sx={{ display: 'flex', gap: 0 }}>
-                {/* Botão Encerrar — só aparece se não estiver concluída */}
                 {task.status !== 'concluida' && (
                   <Tooltip title="Encerrar tarefa">
                     <IconButton size="small" sx={{ color: '#4CAF50', p: 0.4 }}
@@ -197,8 +198,8 @@ const SortableTaskCard = ({ task, onWhatsApp, onEdit, onDelete, onClose, isDragO
   );
 };
 
-// ─── Coluna droppable (usa useDroppable para ser zona de drop) ─
-const KanbanColumn = ({ col, tasks, isDragOver, onWhatsApp, onEdit, onDelete, onClose }) => {
+// ─── Coluna droppable ──────────────────────────────────────────
+const KanbanColumn = ({ col, tasks, isDragOver, onWhatsApp, onEdit, onDelete, onClose, onView }) => {
   const { setNodeRef } = useDroppable({ id: col.key });
 
   return (
@@ -206,57 +207,36 @@ const KanbanColumn = ({ col, tasks, isDragOver, onWhatsApp, onEdit, onDelete, on
       ref={setNodeRef}
       sx={{
         bgcolor: isDragOver ? col.color + '18' : col.bg,
-        borderRadius: 3,
-        border: '2px solid',
+        borderRadius: 3, border: '2px solid',
         borderColor: isDragOver ? col.color : col.color + '30',
-        minHeight: 340,
-        display: 'flex',
-        flexDirection: 'column',
+        minHeight: 340, display: 'flex', flexDirection: 'column',
         transition: 'all 0.15s',
       }}
     >
-      {/* Header */}
       <Box sx={{
-        px: 2, py: 1.5,
-        borderBottom: `3px solid ${col.color}`,
+        px: 2, py: 1.5, borderBottom: `3px solid ${col.color}`,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         borderRadius: '10px 10px 0 0',
       }}>
-        <Typography variant="subtitle2" fontWeight={700}>
-          {col.emoji} {col.label}
-        </Typography>
-        <Chip
-          label={tasks.length}
-          size="small"
-          sx={{ bgcolor: col.color, color: '#fff', fontWeight: 700, fontSize: 11, height: 20 }}
-        />
+        <Typography variant="subtitle2" fontWeight={700}>{col.emoji} {col.label}</Typography>
+        <Chip label={tasks.length} size="small"
+          sx={{ bgcolor: col.color, color: '#fff', fontWeight: 700, fontSize: 11, height: 20 }} />
       </Box>
 
-      {/* Cards */}
       <Box sx={{ p: 1.5, flexGrow: 1 }}>
-        <SortableContext
-          items={tasks.map(t => String(t.id))}
-          strategy={verticalListSortingStrategy}
-        >
+        <SortableContext items={tasks.map(t => String(t.id))} strategy={verticalListSortingStrategy}>
           {tasks.map(task => (
-            <SortableTaskCard
-              key={task.id}
-              task={task}
-              onWhatsApp={onWhatsApp}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onClose={onClose}
-            />
+            <SortableTaskCard key={task.id} task={task}
+              onWhatsApp={onWhatsApp} onEdit={onEdit}
+              onDelete={onDelete} onClose={onClose} onView={onView} />
           ))}
         </SortableContext>
 
         {tasks.length === 0 && (
           <Box sx={{
             textAlign: 'center', py: 5, color: isDragOver ? col.color : 'text.disabled',
-            border: '2px dashed',
-            borderColor: isDragOver ? col.color : col.color + '40',
-            borderRadius: 2, mt: 0.5,
-            transition: 'all 0.15s',
+            border: '2px dashed', borderColor: isDragOver ? col.color : col.color + '40',
+            borderRadius: 2, mt: 0.5, transition: 'all 0.15s',
           }}>
             <Typography variant="caption" fontWeight={isDragOver ? 700 : 400}>
               {isDragOver ? '⬇ Soltar aqui' : 'Arraste tarefas aqui'}
@@ -273,17 +253,22 @@ const emptyForm = {
   due_date: '', status: 'pendente', priority: 'normal',
 };
 
-// ─── Página principal ─────────────────────────────────────────
+// ─── Página principal ──────────────────────────────────────────
 const TasksKanbanPage = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { kanban } = useSelector(s => s.tasks);
+  const { user } = useSelector(s => s.auth);
+  const isAdmin = user?.role === 'diretor';
+
   const [users, setUsers] = useState([]);
   const [dialog, setDialog] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTask, setActiveTask] = useState(null);
-  const [overColKey, setOverColKey] = useState(null); // coluna que está sendo hovada
+  const [overColKey, setOverColKey] = useState(null);
+  const [viewTask, setViewTask] = useState(null); // popup de detalhe
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -293,7 +278,19 @@ const TasksKanbanPage = () => {
   const loadKanban = async () => {
     try {
       const { data } = await taskAPI.kanban();
-      dispatch(setKanban(data));
+      // RBAC: admin vê tudo; outros veem apenas as suas
+      if (!isAdmin && user) {
+        const filtered = {};
+        for (const col of ['pendente', 'em_andamento', 'concluida']) {
+          filtered[col] = (data[col] || []).filter(
+            t => String(t.assigned_to) === String(user.id) ||
+                 String(t.created_by)  === String(user.id)
+          );
+        }
+        dispatch(setKanban(filtered));
+      } else {
+        dispatch(setKanban(data));
+      }
     } catch { }
   };
 
@@ -305,7 +302,6 @@ const TasksKanbanPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Encontra a coluna de uma tarefa pelo id (compara como string para evitar mismatch number/string)
   const findColByTaskId = (id) => {
     const sid = String(id);
     for (const col of COLUMNS) {
@@ -314,11 +310,8 @@ const TasksKanbanPage = () => {
     return null;
   };
 
-  // Encontra a coluna do over (pode ser colKey direto ou uma tarefa dentro dela)
   const resolveDestCol = (overId) => {
-    // É uma coluna?
     if (COLUMNS.find(c => c.key === overId)) return overId;
-    // É uma tarefa em alguma coluna?
     return findColByTaskId(overId);
   };
 
@@ -343,10 +336,8 @@ const TasksKanbanPage = () => {
 
     const sourceCol = findColByTaskId(active.id);
     const destCol   = resolveDestCol(over.id);
-
     if (!sourceCol || !destCol || sourceCol === destCol) return;
 
-    // Optimistic update
     dispatch(moveTask({ taskId: active.id, fromCol: sourceCol, toCol: destCol }));
     try {
       await taskAPI.update(active.id, { status: destCol });
@@ -356,7 +347,7 @@ const TasksKanbanPage = () => {
       );
     } catch {
       toast.error('Erro ao mover tarefa');
-      loadKanban(); // reverte
+      loadKanban();
     }
   };
 
@@ -368,6 +359,14 @@ const TasksKanbanPage = () => {
     } catch {
       toast.error('Erro ao encerrar tarefa');
       loadKanban();
+    }
+  };
+
+  const handleView = (type, task) => {
+    if (type === 'ticket' && task.ticket_id) {
+      navigate(`/tickets/${task.ticket_id}`);
+    } else {
+      setViewTask(task);
     }
   };
 
@@ -424,6 +423,7 @@ const TasksKanbanPage = () => {
   };
 
   const totalTasks = COLUMNS.reduce((acc, col) => acc + (kanban[col.key]?.length || 0), 0);
+  const pri = viewTask ? (PRIORITIES[viewTask.priority] || PRIORITIES.normal) : null;
 
   return (
     <Box>
@@ -434,52 +434,148 @@ const TasksKanbanPage = () => {
             {totalTasks} tarefa(s) · {COLUMNS.map(c =>
               `${kanban[c.key]?.length || 0} ${c.label.toLowerCase()}`
             ).join(' · ')}
+            {!isAdmin && <span style={{ color: '#FF9800', marginLeft: 8 }}>· apenas suas tarefas</span>}
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
-          Nova Tarefa
-        </Button>
+        <Button variant="contained" startIcon={<Add />} onClick={openCreate}>Nova Tarefa</Button>
       </Box>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={rectIntersection}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
+      <DndContext sensors={sensors} collisionDetection={rectIntersection}
+        onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <Grid container spacing={2}>
           {COLUMNS.map(col => (
             <Grid item xs={12} md={4} key={col.key}>
               <KanbanColumn
-                col={col}
-                tasks={kanban[col.key] || []}
+                col={col} tasks={kanban[col.key] || []}
                 isDragOver={overColKey === col.key}
-                onWhatsApp={handleWhatsApp}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-                onClose={handleCloseTask}
+                onWhatsApp={handleWhatsApp} onEdit={openEdit}
+                onDelete={handleDelete} onClose={handleCloseTask} onView={handleView}
               />
             </Grid>
           ))}
         </Grid>
 
-        {/* Overlay visual durante o drag */}
         <DragOverlay dropAnimation={{ duration: 180, easing: 'ease' }}>
           {activeTask ? (
-            <SortableTaskCard
-              task={activeTask}
-              onWhatsApp={() => {}}
-              onEdit={() => {}}
-              onDelete={() => {}}
-              onClose={() => {}}
-              isDragOverlay
-            />
+            <SortableTaskCard task={activeTask}
+              onWhatsApp={() => {}} onEdit={() => {}}
+              onDelete={() => {}} onClose={() => {}} onView={() => {}}
+              isDragOverlay />
           ) : null}
         </DragOverlay>
       </DndContext>
 
-      {/* Dialog criar / editar */}
+      {/* ── Popup detalhe da tarefa ────────────────────────────── */}
+      <Dialog open={!!viewTask} onClose={() => setViewTask(null)} maxWidth="sm" fullWidth disableRestoreFocus>
+        {viewTask && (
+          <>
+            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Chip label={pri.label} size="small"
+                  sx={{ bgcolor: pri.bg, color: pri.color, fontWeight: 700 }} />
+                <Typography variant="h6" fontWeight={700}>{viewTask.title}</Typography>
+              </Box>
+              <IconButton size="small" onClick={() => setViewTask(null)}><Close /></IconButton>
+            </DialogTitle>
+            <DialogContent dividers>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Ticket vinculado */}
+                {viewTask.ticket_number && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ConfirmationNumber fontSize="small" color="primary" />
+                    <Typography variant="body2" color="text.secondary">Ticket:</Typography>
+                    <Link
+                      component="button"
+                      variant="body2"
+                      fontWeight={700}
+                      onClick={() => { setViewTask(null); navigate(`/tickets/${viewTask.ticket_id}`); }}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
+                      #{viewTask.ticket_number}
+                      <OpenInNew sx={{ fontSize: 13 }} />
+                    </Link>
+                    {viewTask.ticket_title && (
+                      <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+                        — {viewTask.ticket_title}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+
+                {/* Status */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>Status:</Typography>
+                  {(() => {
+                    const col = COLUMNS.find(c => c.key === viewTask.status);
+                    return <Chip label={`${col?.emoji} ${col?.label}`} size="small"
+                      sx={{ bgcolor: col?.color + '20', color: col?.color, fontWeight: 600 }} />;
+                  })()}
+                </Box>
+
+                {/* Responsável */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>Responsável:</Typography>
+                  {viewTask.assigned_name ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar sx={{ width: 24, height: 24, fontSize: 11, bgcolor: '#1565C0' }}>
+                        {viewTask.assigned_name.charAt(0)}
+                      </Avatar>
+                      <Typography variant="body2" fontWeight={600}>{viewTask.assigned_name}</Typography>
+                    </Box>
+                  ) : <Typography variant="body2" color="text.secondary">Não atribuído</Typography>}
+                </Box>
+
+                {/* Prazo */}
+                {viewTask.due_date && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>Prazo:</Typography>
+                    <Typography variant="body2" fontWeight={600}
+                      sx={{ color: isPast(new Date(viewTask.due_date)) && viewTask.status !== 'concluida' ? 'error.main' : 'inherit' }}>
+                      {format(new Date(viewTask.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Criado por */}
+                {viewTask.created_by_name && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 90 }}>Criado por:</Typography>
+                    <Typography variant="body2">{viewTask.created_by_name}</Typography>
+                  </Box>
+                )}
+
+                {/* Descrição */}
+                {viewTask.description && (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Descrição:</Typography>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: 'action.hover' }}>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                        {viewTask.description}
+                      </Typography>
+                    </Paper>
+                  </Box>
+                )}
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ px: 2, py: 1.5, gap: 1 }}>
+              {viewTask.status !== 'concluida' && (
+                <Button
+                  variant="contained" color="success" startIcon={<CheckCircle />}
+                  onClick={() => { handleCloseTask(viewTask); setViewTask(null); }}
+                >
+                  Encerrar Tarefa
+                </Button>
+              )}
+              <Button startIcon={<Edit />} onClick={() => { openEdit(viewTask); setViewTask(null); }}>
+                Editar
+              </Button>
+              <Button onClick={() => setViewTask(null)}>Fechar</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* ── Dialog criar / editar ──────────────────────────────── */}
       <Dialog open={dialog} onClose={() => setDialog(false)} maxWidth="sm" fullWidth disableRestoreFocus>
         <DialogTitle sx={{ fontWeight: 700 }}>
           {editingTask ? '✏️ Editar Tarefa' : '➕ Nova Tarefa'}

@@ -3,24 +3,24 @@ const pool = require('../config/database');
 // GET /api/search?q=termo
 const search = async (req, res, next) => {
   try {
-    const { q, limit = 10 } = req.query;
+    const { q, limit = 50 } = req.query;
     if (!q || q.length < 2) return res.json({ results: [] });
 
     const user = req.user;
     const internalRoles = ['atendente', 'gestor', 'diretor'];
     const term = `%${q}%`;
 
-    // Base params: $1-$6 são term, $7 é limit
-    const params = [term, term, term, term, term, term, parseInt(limit)];
+    // $1 = term (usamos o mesmo parâmetro repetidamente via $1)
+    const params = [term, parseInt(limit)];
     let visibilityWhere = '';
 
     if (!internalRoles.includes(user.role)) {
       if (user.role === 'loja') {
-        params.push(user.store_id); // $8
-        visibilityWhere = 'AND t.store_id = $8';
+        params.push(user.store_id); // $3
+        visibilityWhere = 'AND t.store_id = $3';
       } else if (user.role === 'cliente') {
-        params.push(user.id, user.id); // $8, $9
-        visibilityWhere = 'AND (t.client_user_id = $8 OR t.created_by = $9)';
+        params.push(user.id); // $3
+        visibilityWhere = 'AND (t.client_user_id = $3 OR t.created_by = $3)';
       }
     }
 
@@ -38,17 +38,17 @@ const search = async (req, res, next) => {
         ${visibilityWhere}
         AND (
           t.ticket_number ILIKE $1 OR
-          t.title ILIKE $2 OR
-          t.client_name ILIKE $3 OR
-          t.client_email ILIKE $4 OR
-          t.client_phone ILIKE $5 OR
-          t.client_cpf ILIKE $6 OR
-          t.description ILIKE $2 OR
-          tp.serial_number ILIKE $2 OR
-          tp.product_name ILIKE $2
+          t.title        ILIKE $1 OR
+          t.client_name  ILIKE $1 OR
+          t.client_email ILIKE $1 OR
+          t.client_phone ILIKE $1 OR
+          t.description  ILIKE $1 OR
+          COALESCE(t.client_cpf, '') ILIKE $1 OR
+          COALESCE(tp.serial_number, '') ILIKE $1 OR
+          COALESCE(tp.product_name, '')  ILIKE $1
         )
       ORDER BY t.updated_at DESC
-      LIMIT $7
+      LIMIT $2
     `, params);
 
     res.json({ results: rows, query: q });
@@ -67,7 +67,6 @@ const suggest = async (req, res, next) => {
     const internalRoles = ['atendente', 'gestor', 'diretor'];
     const term = `%${q}%`;
 
-    // Base params: $1 é term
     const params = [term];
     let visibilityWhere = '';
 
@@ -76,8 +75,8 @@ const suggest = async (req, res, next) => {
         params.push(user.store_id); // $2
         visibilityWhere = 'AND t.store_id = $2';
       } else if (user.role === 'cliente') {
-        params.push(user.id, user.id); // $2, $3
-        visibilityWhere = 'AND (t.client_user_id = $2 OR t.created_by = $3)';
+        params.push(user.id); // $2
+        visibilityWhere = 'AND (t.client_user_id = $2 OR t.created_by = $2)';
       }
     }
 
@@ -91,10 +90,10 @@ const suggest = async (req, res, next) => {
         ${visibilityWhere}
         AND (
           t.ticket_number ILIKE $1 OR
-          t.title ILIKE $1 OR
-          t.client_name ILIKE $1 OR
-          t.client_email ILIKE $1 OR
-          t.client_phone ILIKE $1
+          t.title         ILIKE $1 OR
+          t.client_name   ILIKE $1 OR
+          t.client_email  ILIKE $1 OR
+          t.client_phone  ILIKE $1
         )
       ORDER BY t.updated_at DESC
       LIMIT 8
