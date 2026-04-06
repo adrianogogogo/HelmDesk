@@ -485,11 +485,36 @@ const EmailReportTab = ({ ticket }) => {
   const emailText = buildEmailText();
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(emailText).then(() => {
+    // navigator.clipboard só funciona em HTTPS ou localhost
+    // Fallback para HTTP via execCommand
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(emailText).then(() => {
+        setCopied(true);
+        toast.success('📋 Copiado para a área de transferência!');
+        setTimeout(() => setCopied(false), 3000);
+      }).catch(() => copyFallback());
+    } else {
+      copyFallback();
+    }
+  };
+
+  const copyFallback = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = emailText;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
       setCopied(true);
       toast.success('📋 Copiado para a área de transferência!');
       setTimeout(() => setCopied(false), 3000);
-    });
+    } catch {
+      toast.error('Não foi possível copiar automaticamente. Selecione o texto manualmente.');
+    }
   };
 
   const handleExportPDF = () => {

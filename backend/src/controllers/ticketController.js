@@ -6,10 +6,10 @@ const getTickets = async (req, res, next) => {
   try {
     const user = req.user;
     const {
-      status_id, brand_id, assigned_to, priority,
+      status_id, brand_id, assigned_to, ball_owner_id, priority,
       search, store_id, page = 1, limit = 20,
       sort = 'created_at', order = 'DESC',
-      exclude_status_ids   // novo: "9,10" para filtro "Ativos"
+      exclude_status_ids   // "9,10" para filtro "Ativos"
     } = req.query;
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -35,6 +35,7 @@ const getTickets = async (req, res, next) => {
     }
     if (brand_id) { params.push(brand_id); whereConditions.push(`t.brand_id = $${params.length}`); }
     if (assigned_to) { params.push(assigned_to); whereConditions.push(`t.assigned_to = $${params.length}`); }
+    if (ball_owner_id) { params.push(ball_owner_id); whereConditions.push(`t.ball_owner_id = $${params.length}`); }
     if (priority) { params.push(priority); whereConditions.push(`t.priority = $${params.length}`); }
     if (store_id && internalRoles.includes(user.role)) { params.push(store_id); whereConditions.push(`t.store_id = $${params.length}`); }
 

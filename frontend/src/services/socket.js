@@ -9,9 +9,10 @@ export const initSocket = (userId, dispatch) => {
   if (socket) socket.disconnect();
 
   socket = io(process.env.REACT_APP_SOCKET_URL || 'http://177.153.39.134:5000', {
-    transports: ['websocket'],
+    transports: ['polling', 'websocket'],  // polling primeiro como fallback
     reconnection: true,
-    reconnectionDelay: 1000,
+    reconnectionDelay: 2000,
+    reconnectionAttempts: 10,
   });
 
   socket.on('connect', () => {

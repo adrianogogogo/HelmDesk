@@ -232,7 +232,7 @@ HelmDesk/
 - `POST /api/auth/change-password` — alterar senha
 
 ### Usuários
-- `GET    /api/users` — listar (gestor/diretor)
+- `GET    /api/users` — listar (atendente/gestor/diretor — para filtros de responsável)
 - `POST   /api/users` — criar (gestor/diretor)
 - `PATCH  /api/users/:id` — atualizar (suporta troca de senha com bcrypt)
 - `DELETE /api/users/:id` — anonimizar (LGPD, apenas diretor)
@@ -244,8 +244,9 @@ HelmDesk/
 
 ### Tickets
 - `GET    /api/tickets` — listar com filtros:
-  - `status_id`, `brand_id`, `assigned_to`, `priority`, `search`, `page`, `limit`
+  - `status_id`, `brand_id`, `assigned_to`, `ball_owner_id` (responsável ⚽), `priority`, `search`, `page`, `limit`
   - `exclude_status_ids` — ex.: `"9,10"` para exibir apenas tickets ativos
+- `GET    /api/tickets/meta/statuses` — lista de status (**deve vir antes de `/:id` no router**)
 - `POST   /api/tickets` — criar ticket
 - `GET    /api/tickets/:id` — detalhe completo
 - `PATCH  /api/tickets/:id` — editar ticket
@@ -259,7 +260,7 @@ HelmDesk/
 - `POST   /api/tickets/:id/blocks` — adicionar bloco modular
 - `PATCH  /api/tickets/:id/blocks/:blockId` — atualizar bloco
 - `POST   /api/tickets/:id/anonymize` — anonimizar (LGPD)
-- `GET    /api/tickets/meta/statuses` — lista de status
+- ~~`GET    /api/tickets/meta/statuses`~~ — movida para **antes** de `/:id`
 
 ### Tarefas
 - `GET    /api/tasks` — listar (filtros: ticket_id, assigned_to)
@@ -374,6 +375,9 @@ HelmDesk/
 - Botão **"Encerrar tarefa"** (ícone ✅) em cada card move direto para `concluida`
 - Barra de prioridade colorida, destaque de prazo vencido/hoje
 - `DragOverlay` para visual durante o arraste
+- **RBAC:** `diretor` vê todas as tarefas; outros veem só as atribuídas a si ou criadas por si
+- **Chip de ticket** `#XXXX` clicável → navega para `/tickets/:id`
+- **Popup de detalhe** ao clicar no título: status, responsável, prazo, criado por, descrição, link do ticket, botão Encerrar
 
 ---
 
@@ -508,6 +512,26 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 - **Causa:** IDs do banco são `number`; dnd-kit passa `active.id` como `string`; comparação estrita `===` falhava silenciosamente
 - **Correção:** `String(task.id)` em `useSortable({ id })`, `SortableContext items`, `findColByTaskId`, `handleDragStart` e `moveTask` reducer
 
+### Busca retornando 500 /api/search e /api/search/suggest (corrigido 2026-04-06)
+- **Causa:** `SELECT DISTINCT ... ORDER BY t.updated_at DESC` — PostgreSQL exige que colunas do ORDER BY estejam no SELECT quando se usa DISTINCT
+- **Correção:** Migrado para `SELECT DISTINCT ON (t.updated_at, t.id) ... ORDER BY t.updated_at DESC, t.id` e `t.updated_at` adicionado ao SELECT
+
+### Filtro por responsável em /tickets retornando vazio para atendente (corrigido 2026-04-06)
+- **Causa:** `GET /api/users` estava restrito a `gestor`/`diretor`; `atendente` recebia 403 e a lista ficava vazia
+- **Correção:** `authorize('atendente', 'gestor', 'diretor')` na rota GET /api/users
+
+### /api/tickets/meta/statuses retornando 404 (corrigido 2026-04-06)
+- **Causa:** A rota `GET /api/tickets/meta/statuses` estava definida **depois** de `GET /api/tickets/:id`, então `meta` era tratado como `:id`
+- **Correção:** Rota `/meta/statuses` movida para **antes** de `/:id` no router
+
+### WebSocket falhando com ERR_CONNECTION (corrigido 2026-04-06)
+- **Causa:** `socket.js` usava `transports: ['websocket']` apenas; sem fallback para polling
+- **Correção:** `transports: ['polling', 'websocket']` — polling primeiro, upgrade automático para WS
+
+### Loja conseguia mudar status de ticket (corrigido 2026-04-05)
+- **Causa:** Rota `PATCH /tickets/:id/status` não tinha restrição de perfil
+- **Correção:** Adicionado middleware `internalOnly` na rota; `loja` recebe 403
+
 ---
 
 ## 📋 Changelog
@@ -524,7 +548,10 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 | 2026-04-03 | (PR #3) | Fix dashboard 500 (client_user_id) + RejectDialog (aria-hidden) |
 | 2026-04-03 | (PR #4) | Beta: filtros tickets, NoteDialog, Kanban redesign, RelatórioEmail, +55, ClientsPage, SMTP |
 | 2026-04-04 | (PR #5) | Fix drag-and-drop Kanban (mismatch number/string ID) + botão Encerrar tarefa |
+| 2026-04-05 | (PR #8) | Fix firewall Locaweb: substituir UFW por iptables-persistent |
+| 2026-04-05 | (PR #9) | Fix filtro responsável tickets, busca 500, Kanban RBAC+popup, clipboard HTTP, loja status, stores auto-login |
+| 2026-04-06 | (PR #10) | Fix busca 500 (DISTINCT ON), WebSocket polling fallback, /meta/statuses rota, atendente lista usuários |
 
 ---
 
-*Última atualização: 2026-04-04*
+*Última atualização: 2026-04-06*
