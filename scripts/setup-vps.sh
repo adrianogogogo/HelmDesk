@@ -76,14 +76,30 @@ sudo -u postgres psql -d relmdesk -c "GRANT ALL ON SCHEMA public TO relmdesk_use
   2>/dev/null || true
 echo "✅ Banco de dados 'relmdesk' pronto"
 
-# ---- Firewall ----
+# ---- Firewall (iptables — UFW removido pelo iptables-persistent na Locaweb) ----
 echo ""
-echo "🔒 Configurando firewall (UFW)..."
-ufw allow 22/tcp   2>/dev/null || true   # SSH
-ufw allow 3000/tcp 2>/dev/null || true   # Frontend
-ufw allow 5000/tcp 2>/dev/null || true   # Backend API
-echo "y" | ufw enable 2>/dev/null || true
-echo "✅ Portas 22, 3000 e 5000 liberadas"
+echo "🔒 Configurando firewall (iptables)..."
+
+# Instalar iptables-persistent para sobreviver ao reboot
+if ! command -v netfilter-persistent &>/dev/null; then
+  # Pré-responder 'yes' para salvar regras IPv4/IPv6
+  echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
+  echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
+  apt-get install -y iptables-persistent 2>/dev/null || true
+fi
+
+# Adicionar regras apenas se não existirem
+iptables -C INPUT -p tcp --dport 22   -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 22   -j ACCEPT
+iptables -C INPUT -p tcp --dport 3000 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 3000 -j ACCEPT
+iptables -C INPUT -p tcp --dport 5000 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 5000 -j ACCEPT
+
+# Salvar regras
+if command -v netfilter-persistent &>/dev/null; then
+  netfilter-persistent save 2>/dev/null || true
+else
+  mkdir -p /etc/iptables && iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+fi
+echo "✅ Portas 22, 3000 e 5000 liberadas (iptables persistente)"
 
 # ---- Diretório de logs ----
 mkdir -p /var/log/relmdesk
