@@ -80,16 +80,28 @@ echo "  Porta 5000: $(ss -tlnp | grep ':5000' | awk '{print $1, $4, $6}' || echo
 # ============================================================
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  5. Firewall (UFW)"
+echo "  5. Firewall (iptables)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-UFW_STATUS=$(ufw status 2>/dev/null | head -3 || echo "ufw não disponível")
-echo "$UFW_STATUS"
 
-# Garantir portas abertas
-ufw allow 22/tcp   2>/dev/null || true
-ufw allow 3000/tcp 2>/dev/null || true
-ufw allow 5000/tcp 2>/dev/null || true
-echo "  ✅ Portas 22, 3000 e 5000 garantidas no firewall"
+# UFW foi removido (conflito com iptables-persistent na Locaweb)
+# Usar iptables diretamente
+echo "  Garantindo portas 22, 3000 e 5000 no iptables..."
+
+# Adiciona regra apenas se ainda não existir
+iptables -C INPUT -p tcp --dport 22   -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 22   -j ACCEPT
+iptables -C INPUT -p tcp --dport 3000 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 3000 -j ACCEPT
+iptables -C INPUT -p tcp --dport 5000 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 5000 -j ACCEPT
+
+# Persistir regras para sobreviver ao reboot
+if command -v netfilter-persistent &>/dev/null; then
+  netfilter-persistent save 2>/dev/null && echo "  ✅ Regras salvas (netfilter-persistent)"
+elif command -v iptables-save &>/dev/null; then
+  mkdir -p /etc/iptables
+  iptables-save > /etc/iptables/rules.v4
+  echo "  ✅ Regras salvas em /etc/iptables/rules.v4"
+fi
+
+echo "  ✅ Portas 22, 3000 e 5000 liberadas no iptables"
 
 # ============================================================
 echo ""
