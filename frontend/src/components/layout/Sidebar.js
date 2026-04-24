@@ -8,7 +8,7 @@ import {
 import {
   Dashboard, ConfirmationNumber, Assignment, Inventory2,
   People, BarChart, Settings, Search, SportsScore,
-  Store, Group, ChevronLeft, ChevronRight, Forum
+  Store, Group, ChevronLeft, ChevronRight, Forum, GridView
 } from '@mui/icons-material';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 
@@ -28,6 +28,7 @@ const Sidebar = () => {
     { label: 'Tickets',        icon: <ConfirmationNumber />, path: '/tickets',      roles: ['atendente','gestor','diretor','loja','cliente'] },
     { label: 'Tarefas',        icon: <Assignment />,         path: '/tarefas',      roles: ['atendente','gestor','diretor'] },
     { label: 'Chat',           icon: <Forum />,              path: '/chat',         roles: ['atendente','gestor','diretor'], badge: chatUnread },
+    { label: 'Quadro Visual',  icon: <GridView />,           path: '/quadro',       roles: ['atendente','gestor','diretor'] },
     { label: 'Busca',          icon: <Search />,             path: '/busca',        roles: ['atendente','gestor','diretor','loja','cliente'] },
     { divider: true },
     { label: 'Produtos',       icon: <Inventory2 />,         path: '/produtos',     roles: ['atendente','gestor','diretor'] },

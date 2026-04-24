@@ -27,6 +27,7 @@ import TrackTicketPage from './pages/TrackTicketPage';
 import UsersPage from './pages/UsersPage';
 import StoresPage from './pages/StoresPage';
 import NotFoundPage from './pages/NotFoundPage';
+import QuadroVisualPage from './pages/QuadroVisualPage';
 
 // Protected route
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -72,6 +73,7 @@ function App() {
           <Route path="configuracoes" element={<ProtectedRoute allowedRoles={['gestor','diretor']}><ConfigPage /></ProtectedRoute>} />
           <Route path="busca" element={<SearchPage />} />
           <Route path="futebol" element={<GamificationPage />} />
+          <Route path="quadro" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor']}><QuadroVisualPage /></ProtectedRoute>} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

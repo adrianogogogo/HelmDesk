@@ -552,6 +552,7 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 | 2026-04-05 | (PR #9) | Fix filtro responsável tickets, busca 500, Kanban RBAC+popup, clipboard HTTP, loja status, stores auto-login |
 | 2026-04-06 | (PR #10) | Fix busca 500 (DISTINCT ON), WebSocket polling fallback, /meta/statuses rota, atendente lista usuários |
 | 2026-04-24 | (PR #11) | Chat: unread badge TopBar/Sidebar, isChatPage tracking, setIsChatPage; Segurança: remember-me checkbox, JWT 8h/30d, sessionExpired, inatividade 30min, sessionStorage para sessões temporárias, SIDEBAR_WIDTH constants fix |
+| 2026-04-24 | (PR #12) | Quadro Visual: nova página /quadro com post-its, formas (retângulo, círculo, losango), setas, texto, desenho livre, borracha, seleção por área, undo/redo, zoom, pan, cor de fundo, imagem de fundo, grade/pontos, exportar/importar JSON; Chat: chat_notification instantâneo via addMessage sem chamada API |
 
 ---
 
@@ -586,7 +587,9 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 - Quando sala é a ativa E chat está visível → não incrementa contador
 - Caso contrário → incrementa `unread_count` da sala + `unreadTotal`
 
-### socket.js — chat_notification
+### socket.js — chat_notification (otimizado 2026-04-24)
+- `chat_notification` agora usa `addMessage` localmente (sem chamada API) para atualização instantânea
+- Só faz fallback para `chatAPI.getRooms()` se o evento não trouxer `room_id`
 - Evento `chat_notification` (recebido pelo backend quando membro não está na sala)
 - Agora chama `chatAPI.getRooms()` e despacha `setRooms(r.data)` para recarregar `unread_count` do servidor
 
@@ -594,5 +597,38 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 - Badge no ícone Chat da TopBar mostra `chatUnread` (total de não lidos)
 - Badge no menu Chat da Sidebar também exibe `chatUnread`
 - Ao abrir a sala na ChatPage ou ChatDrawer → `markRoomRead(roomId)` zera o contador
+
+---
+
+## 🖼️ Quadro Visual (2026-04-24)
+
+### Página
+- Rota: `/quadro` — acesso: `atendente`, `gestor`, `diretor`
+- Arquivo: `frontend/src/pages/QuadroVisualPage.js`
+- Entrada no Sidebar com ícone `GridView`
+
+### Funcionalidades
+- **Post-its**: criar (clicar na tela com ferramenta N), editar (duplo-clique → modal grande centralizado com fundo escuro), arrastar, 12 cores, título + conteúdo + tag, resize via dialog
+- **Formas**: retângulo, círculo/oval, losango (decisão) — cor de preenchimento, borda, texto configuráveis via dialog
+- **Setas**: dois cliques (ponto início → destino); cor, tracejado, rótulo
+- **Texto**: tamanho, cor, negrito, itálico
+- **Desenho livre**: pincel com cor e espessura ajustável + borracha
+- **Seleção por área**: arrastar retângulo sobre elementos
+- **Undo/Redo**: Ctrl+Z / Ctrl+Y; histórico de 50 passos
+- **Zoom**: scroll do mouse ou botões ±10%; ajuste 20%–300%
+- **Pan**: ferramenta mão (H) ou espaço; arrastar o fundo
+- **Cor do fundo**: 8 cores predefinidas + color picker; modo escuro/claro
+- **Imagem de fundo**: upload de imagem local (preserveAspectRatio: xMidYMid slice)
+- **Grade**: padrão de pontos (decorativo) ou grid de linhas toggle
+- **Ocultar pontos**: toggle para visual limpo
+- **Exportar/Importar**: salva `quadro_AAAA-MM-DD.json` com elementos + pencilPaths + bgColor + bgImage
+- **Atalhos**: V=selecionar, H=pan, N=post-it, P=desenho, Del=deletar selecionados, Esc=cancelar
+
+### Arquitetura
+- **Estado**: `useReducer` + reducer `boardReducer` (undo/redo via `past`/`future`)
+- **Renderização**: SVG principal para elementos (post-its, formas, setas, texto) + `<canvas>` HTML5 sobreposto para desenho livre
+- **Canvas**: ativo apenas nos modos draw/erase; `zIndex: -1` no resto (SVG recebe eventos)
+- **Post-it modal**: `PostItViewModal` (fundo escuro, centrado, fullscreen) ativado por duplo-clique
+- **Componentes**: `PostItElement`, `ShapeElement`, `TextElement`, `ArrowElement`, `EditElementDialog`
 
 *Última atualização: 2026-04-24*

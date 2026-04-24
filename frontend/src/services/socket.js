@@ -33,9 +33,22 @@ export const initSocket = (userId, dispatch) => {
   });
 
   // Notificação de nova mensagem em sala que o usuário não está visualizando
-  socket.on('chat_notification', () => {
-    // Recarrega a lista de salas para atualizar unread_count e last_message
-    chatAPI.getRooms().then(r => dispatch(setRooms(r.data))).catch(() => {});
+  // Usa addMessage para atualização instantânea sem chamada de API
+  socket.on('chat_notification', (data) => {
+    if (data && data.room_id) {
+      // Criar mensagem fictícia para atualizar contadores e sala imediatamente
+      dispatch(addMessage({
+        id: `notif_${Date.now()}`,
+        room_id: data.room_id,
+        message: data.message || '',
+        sender_name: data.sender_name || '',
+        sender_id: -1,
+        created_at: new Date().toISOString(),
+      }));
+    } else {
+      // Fallback: recarregar salas
+      chatAPI.getRooms().then(r => dispatch(setRooms(r.data))).catch(() => {});
+    }
   });
 
   socket.on('user_online', (data) => {
