@@ -7,12 +7,13 @@ import {
 } from '@mui/material';
 import { Send, Add, Circle, Search, ArrowBack } from '@mui/icons-material';
 import {
-  setRooms, setActiveRoom, setMessages, setUsers, markRoomRead, setIsChatPage
+  setRooms, setActiveRoom, setMessages, setUsers, markRoomRead, setIsChatPage, addMessage
 } from '../store/slices/chatSlice';
 import { chatAPI } from '../services/api';
 import { joinRoom, leaveRoom, sendMessage, sendTyping, sendStopTyping, getSocket } from '../services/socket';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import toast from 'react-hot-toast';
 
 const ChatPage = () => {
   const dispatch = useDispatch();
@@ -68,22 +69,57 @@ const ChatPage = () => {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
+
     const handleTyping = ({ user_name, room_id }) => {
       if (activeRoom && room_id === activeRoom.id) setTyping(user_name);
     };
     const handleStopTyping = ({ room_id }) => {
       if (!activeRoom || room_id === activeRoom.id) setTyping(null);
     };
-    const handleNotification = () => {
-      chatAPI.getRooms().then(r => dispatch(setRooms(r.data))).catch(() => {});
+
+    // Notificação de nova mensagem em outra sala
+    const handleChatNotification = (data) => {
+      if (data && data.room_id) {
+        // Atualizar contadores via addMessage
+        dispatch(addMessage({
+          id: `notif_${Date.now()}`,
+          room_id: data.room_id,
+          message: data.message || '',
+          sender_name: data.sender_name || '',
+          sender_id: -1,
+          created_at: new Date().toISOString(),
+        }));
+        // Toast somente se a mensagem não é da sala ativa
+        if (!activeRoom || activeRoom.id !== data.room_id) {
+          toast(`💬 ${data.sender_name || 'Alguém'}: ${(data.message || '').slice(0, 60)}`, {
+            duration: 4000,
+            icon: '💬',
+            style: {
+              background: '#1565C0',
+              color: '#fff',
+              fontSize: 13,
+            },
+          });
+        }
+      } else {
+        chatAPI.getRooms().then(r => dispatch(setRooms(r.data))).catch(() => {});
+      }
     };
+
+    // Nova mensagem na sala ativa
+    const handleNewMessage = (msg) => {
+      dispatch(addMessage(msg));
+    };
+
     socket.on('user_typing', handleTyping);
     socket.on('user_stop_typing', handleStopTyping);
-    socket.on('chat_notification', handleNotification);
+    socket.on('chat_notification', handleChatNotification);
+    socket.on('new_message', handleNewMessage);
     return () => {
       socket.off('user_typing', handleTyping);
       socket.off('user_stop_typing', handleStopTyping);
-      socket.off('chat_notification', handleNotification);
+      socket.off('chat_notification', handleChatNotification);
+      socket.off('new_message', handleNewMessage);
     };
   }, [activeRoom, dispatch]);
 

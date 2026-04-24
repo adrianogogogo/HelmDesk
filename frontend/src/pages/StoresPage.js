@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import {
   Box, Typography, Card, Table, TableHead, TableRow, TableCell, TableBody,
   Chip, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Switch, FormControlLabel, Tooltip, InputAdornment, Alert, Grid
+  TextField, Switch, FormControlLabel, Tooltip, InputAdornment, Alert, Grid,
+  Paper
 } from '@mui/material';
-import { Add, Edit, Store, Search } from '@mui/icons-material';
+import { Add, Edit, Store, Search, ContentCopy, CheckCircle } from '@mui/icons-material';
 import { storeAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -17,6 +18,7 @@ const StoresPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
+  const [createdLogin, setCreatedLogin] = useState(null); // {email, password, storeName}
 
   const load = () => storeAPI.list().then(r => setStores(r.data)).catch(() => {});
 
@@ -38,15 +40,42 @@ const StoresPage = () => {
       if (editing) {
         await storeAPI.update(editing.id, form);
         toast.success('Loja atualizada!');
+        setDialog(false);
+        load();
       } else {
-        await storeAPI.create(form);
-        toast.success('Loja criada!');
+        const { data } = await storeAPI.create(form);
+        setDialog(false);
+        load();
+        // Mostrar credenciais de acesso criadas automaticamente
+        if (data.user_created) {
+          setCreatedLogin({
+            email: data.login_email,
+            password: data.login_password,
+            storeName: data.name,
+          });
+        } else {
+          toast.success(data.message || 'Loja criada!');
+        }
       }
-      setDialog(false);
-      load();
     } catch (e) {
       setError(e.response?.data?.error || 'Erro ao salvar loja');
     }
+  };
+
+  const copyToClipboard = (text) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => toast.success('Copiado!'));
+      } else {
+        const el = document.createElement('textarea');
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        toast.success('Copiado!');
+      }
+    } catch { toast.error('Não foi possível copiar'); }
   };
 
   return (
@@ -111,6 +140,59 @@ const StoresPage = () => {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Dialog: Credenciais da nova loja */}
+      <Dialog open={Boolean(createdLogin)} onClose={() => setCreatedLogin(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CheckCircle color="success" />
+          Loja criada com sucesso!
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Login de acesso criado automaticamente para <strong>{createdLogin?.storeName}</strong>:
+          </Typography>
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">E-mail</Typography>
+                <Typography variant="body2" fontWeight={600}>{createdLogin?.email}</Typography>
+              </Box>
+              <Tooltip title="Copiar e-mail">
+                <IconButton size="small" onClick={() => copyToClipboard(createdLogin?.email)}>
+                  <ContentCopy fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Senha</Typography>
+                <Typography variant="body2" fontWeight={600} sx={{ fontFamily: 'monospace', fontSize: 15, letterSpacing: 1 }}>
+                  {createdLogin?.password}
+                </Typography>
+              </Box>
+              <Tooltip title="Copiar senha">
+                <IconButton size="small" onClick={() => copyToClipboard(createdLogin?.password)}>
+                  <ContentCopy fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Paper>
+          <Alert severity="warning" sx={{ mt: 2, fontSize: 12 }}>
+            Anote estas credenciais! A senha não pode ser recuperada depois que você fechar esta janela.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            variant="contained"
+            onClick={() => {
+              copyToClipboard(`E-mail: ${createdLogin?.email}\nSenha: ${createdLogin?.password}`);
+            }}
+          >
+            Copiar tudo
+          </Button>
+          <Button onClick={() => setCreatedLogin(null)}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={dialog} onClose={() => setDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editing ? 'Editar Loja' : 'Nova Loja'}</DialogTitle>

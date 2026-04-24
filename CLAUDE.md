@@ -599,9 +599,14 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 - Badge no menu Chat da Sidebar também exibe `chatUnread`
 - Ao abrir a sala na ChatPage ou ChatDrawer → `markRoomRead(roomId)` zera o contador
 
+### Toast de Nova Mensagem (2026-04-25)
+- `ChatPage` e `ChatDrawer`: ao receber `chat_notification` de uma sala diferente da ativa, exibe toast azul `"💬 Remetente: prévia da mensagem"` via `react-hot-toast`
+- `ChatPage` também escuta `new_message` via socket (além do fluxo Redux) para garantir mensagens instantâneas
+- Toast com duração de 4 segundos, estilo: `{ background: '#1565C0', color: '#fff' }`
+
 ---
 
-## 🖼️ Quadro Visual (2026-04-24)
+## 🖼️ Quadro Visual (2026-04-24 → 2026-04-25)
 
 ### Página
 - Rota: `/quadro` — acesso: `atendente`, `gestor`, `diretor`
@@ -622,31 +627,55 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 - **Imagem de fundo**: upload de imagem local (preserveAspectRatio: xMidYMid slice)
 - **Grade**: padrão de pontos (decorativo) ou grid de linhas toggle
 - **Ocultar pontos**: toggle para visual limpo
-- **Exportar/Importar**: salva `quadro_AAAA-MM-DD.json` com elementos + pencilPaths + bgColor + bgImage
+- **Densidade dos pontos** (2026-04-25): slider na toolbar para ajustar espaçamento (20–120px); estado `dotSpacing` no reducer; salvo em export/import
+- **Exportar/Importar**: salva `quadro_AAAA-MM-DD.json` com elementos + pencilPaths + bgColor + bgImage + showGrid + showPoints + dotSpacing + gridSize
 - **Atalhos**: V=selecionar, H=pan, N=post-it, T=texto, R=retângulo, O=círculo, D=losango, A=seta, P=pincel, E=borracha, Del=deletar, Esc=cancelar
-- **Seta curva**: toggle "Curva" no dialog de edição da seta (usa `path Q` bezier suave)
+
+### Modal Post-it (melhorado 2026-04-25)
+- Fecha com **tecla ESC** (listener `keydown` adicionado ao `window`)
+- Dica "ESC para fechar" exibida no cabeçalho
+- Animação de entrada: `fadeInModal` (overlay) + `slideUpModal` (painel com spring)
+- Overlay mais escuro: `rgba(0,0,0,0.85)` + `blur(8px)`
+- Painel ligeiramente maior: `maxWidth: 780px`, `maxHeight: 90vh`
 
 ### Arquitetura
 - **Estado**: `useReducer` + reducer `boardReducer` (undo/redo via `past`/`future`)
 - **Renderização**: SVG principal para elementos (post-its, formas, setas, texto) + `<canvas>` HTML5 sobreposto para desenho livre
 - **Canvas**: ativo apenas nos modos draw/erase; `zIndex: -1` no resto (SVG recebe eventos)
-- **Post-it modal**: `PostItViewModal` redesenhado (fundo escuro 82% opacidade, blur 6px, modal responsivo, cabeçalho+footer fixos, scroll no conteúdo, largura 50–95vw)
-- **Componentes**: `PostItElement` (drop-shadow, faixa superior, hint duplo-clique), `ShapeElement` (drop-shadow, stroke azul padrão), `TextElement`, `ArrowElement` (suporte a curvas bezier, strokeLinecap round), `EditElementDialog`
-- **Segurança backend (2026-04-24)**: `authLimiter` (20 req/15min para `/api/auth`), headers `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`; Helmet sem CSP forçado
+- **Componentes**: `PostItElement`, `ShapeElement`, `TextElement`, `ArrowElement`, `EditElementDialog`, `PostItViewModal`
 
 ---
 
-## 🔒 Segurança Backend — Melhorias (2026-04-24)
+## 🔒 Segurança Backend — Melhorias (2026-04-25)
 
 ### Rate Limiter de Autenticação
 ```js
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 20, // 20 tentativas por IP
-  skipSuccessfulRequests: true, // não conta logins bem-sucedidos
+  windowMs: 15 * 60 * 1000,
+  max: 15, // 15 tentativas por IP por 15min
+  skipSuccessfulRequests: true,
 });
 app.use('/api/auth', authLimiter, require('./routes/auth'));
 ```
+
+### Bloqueio por E-mail (em memória — authController)
+- Após 10 tentativas falhas para o mesmo e-mail → bloqueio de 15 min
+- Mensagem clara ao usuário com tempo restante
+- Map `loginAttempts` limpo a cada 30 min (entradas expiradas)
+- Login bem-sucedido limpa o contador do e-mail
+
+### Sanitização de Body
+```js
+// middleware em server.js
+const sanitizeBody = (req, res, next) => {
+  // limita strings do body a 4096 caracteres
+};
+app.use(sanitizeBody);
+```
+
+### Validação de Senha
+- `changePassword`: valida que `new_password` tem 6–128 caracteres antes de fazer hash
+- Campos obrigatórios verificados antes de qualquer operação de DB
 
 ### Headers de Segurança Extras
 ```js
@@ -655,13 +684,73 @@ res.setHeader('X-Frame-Options', 'DENY');
 res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 ```
 
-### Helmet (2026-04-24)
+### Helmet (configurado)
 ```js
 helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false, // CSP gerenciado pelo frontend
+  contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
 })
 ```
 
-*Última atualização: 2026-04-24*
+---
+
+## 🔔 Chat — Notificações em Tempo Real (2026-04-25)
+
+### Comportamento atual
+- **TopBar** (ícone Chat): badge vermelho com `chatSlice.unreadTotal` — atualizado em tempo real via socket
+- **ChatPage** (`/chat`): ao receber `chat_notification` de sala diferente da ativa, exibe **toast azul** com trecho da mensagem (`💬 Remetente: trecho...`)
+- **ChatDrawer** (drawer flutuante): mesmo comportamento — toast quando drawer fechado ou sala diferente está ativa
+- **Sala ativa**: mensagens chegam por `new_message` → adicionadas diretamente sem toast (usuário está vendo)
+- **Contador não lidos**: gerenciado pelo `chatSlice.addMessage` — incrementa unread_count da sala e recalcula `unreadTotal`
+- **Marcar como lido**: ao abrir sala (`markRoomRead`) — zera contador da sala e subtrai de `unreadTotal`
+
+### Eventos Socket utilizados
+| Evento | Direção | Uso |
+|--------|---------|-----|
+| `new_message` | servidor → cliente | mensagem na sala que o usuário está visualizando |
+| `chat_notification` | servidor → cliente | mensagem em sala que o usuário NÃO está visualizando |
+| `user_typing` / `user_stop_typing` | servidor → cliente | indicador de digitação |
+| `user_online` | servidor → todos | presença online/offline |
+
+---
+
+## 🏪 Lojas — Credenciais de Acesso (2026-04-25)
+
+### Criação automática de login
+- Backend (`POST /api/stores`): ao criar loja, cria automaticamente usuário com role `loja`
+- Senha padrão: informada no formulário OU `Loja@{ano}!` (ex: `Loja@2026!`)
+- Backend retorna: `{ ...store, user_created, login_email, login_password, message }`
+
+### Frontend — StoresPage melhorada
+- Após criação bem-sucedida, exibe **dialog de credenciais** com:
+  - E-mail e senha em destaque
+  - Botões de copiar individuais (com fallback `execCommand` para HTTP)
+  - Botão "Copiar tudo" (e-mail + senha)
+  - Alerta de aviso para anotar antes de fechar
+- Se usuário já existia (e-mail já cadastrado): apenas atualiza `store_id` e exibe toast simples
+
+---
+
+## 📋 Tarefas — Kanban (status atual)
+
+### Implementado
+- Tickets nas tarefas possuem **link clicável** para abrir o ticket (`navigate('/tickets/{id}')`)
+- **RBAC**: admin/gestor/diretor vê todas as tarefas; atendente vê apenas as suas
+- **Dialog de detalhes** ao clicar em tarefa (popup com título, descrição, prioridade, responsável, ticket)
+- Botão "Encerrar tarefa" move para coluna `concluida`
+- Drag-and-drop com IDs strings (corrigido mismatch number/string)
+
+---
+
+## 📅 Changelog resumido
+
+| Data | Commit | Descrição |
+|------|--------|-----------|
+| 2026-04-04 | `6091480` | Fix filtro tickets, busca 500, Kanban RBAC/popup, clipboard HTTP, loja/status, stores auto-login |
+| 2026-04-04 | `a07e5b6` | Fix busca 500 (DISTINCT ON), WebSocket polling, /meta/statuses antes de /:id, atendente lista usuários |
+| 2026-04-25 | `790f3f5` | Chat notificações unread badge; segurança remember-me + timeout inatividade |
+| 2026-04-25 | `b66e9b7` | Quadro Visual (post-its, formas, setas, desenho, bg); chat_notification otimizado |
+| 2026-04-25 | (atual) | Chat toast notificações em tempo real; StoresPage credenciais; QuadroVisual ESC modal + animações |
+
+*Última atualização: 2026-04-25*

@@ -61,12 +61,29 @@ app.use('/api/', apiLimiter);
 // Rate limit mais rigoroso para autenticação (evitar brute-force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 20, // 20 tentativas por IP
+  max: 15, // 15 tentativas por IP (em combinação com bloqueio por e-mail no controller)
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Muitas tentativas de login. Aguarde 15 minutos.' },
   skipSuccessfulRequests: true, // não conta requisições bem-sucedidas
 });
+
+// Middleware de sanitização básica — remove campos com valores suspeitos
+const sanitizeBody = (req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    const sanitize = (val) => {
+      if (typeof val === 'string') return val.slice(0, 4096); // limitar tamanho de strings
+      return val;
+    };
+    for (const key of Object.keys(req.body)) {
+      if (typeof req.body[key] === 'string') {
+        req.body[key] = sanitize(req.body[key]);
+      }
+    }
+  }
+  next();
+};
+app.use(sanitizeBody);
 
 // Middleware de segurança adicional — headers extras
 app.use((req, res, next) => {
