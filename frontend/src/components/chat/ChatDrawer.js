@@ -7,12 +7,13 @@ import {
 } from '@mui/material';
 import { Close, Send, ArrowBack, Add, Circle } from '@mui/icons-material';
 import {
-  setChatOpen, setActiveRoom, setMessages, setRooms, setUsers, markRoomRead, setIsChatPage
+  setChatOpen, setActiveRoom, setMessages, setRooms, setUsers, markRoomRead, setIsChatPage, addMessage
 } from '../../store/slices/chatSlice';
 import { chatAPI } from '../../services/api';
 import { joinRoom, leaveRoom, sendMessage, sendTyping, sendStopTyping, getSocket } from '../../services/socket';
 import { format, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import toast from 'react-hot-toast';
 
 const ChatDrawer = () => {
   const dispatch = useDispatch();
@@ -70,9 +71,29 @@ const ChatDrawer = () => {
     const handleStopTyping = ({ room_id }) => {
       if (!activeRoom || room_id === activeRoom.id) setTyping(null);
     };
-    // Recarregar salas quando chega notificação de chat
-    const handleChatNotification = () => {
-      chatAPI.getRooms().then(r => dispatch(setRooms(r.data))).catch(() => {});
+
+    // Notificação de nova mensagem em sala não ativa
+    const handleChatNotification = (data) => {
+      if (data && data.room_id) {
+        dispatch(addMessage({
+          id: `notif_${Date.now()}`,
+          room_id: data.room_id,
+          message: data.message || '',
+          sender_name: data.sender_name || '',
+          sender_id: -1,
+          created_at: new Date().toISOString(),
+        }));
+        // Toast somente se o drawer está fechado ou a sala ativa é diferente
+        const notInRoom = !activeRoom || activeRoom.id !== data.room_id;
+        if (!isOpen || notInRoom) {
+          toast(`💬 ${data.sender_name || 'Alguém'}: ${(data.message || '').slice(0, 60)}`, {
+            duration: 4000,
+            style: { background: '#1565C0', color: '#fff', fontSize: 13 },
+          });
+        }
+      } else {
+        chatAPI.getRooms().then(r => dispatch(setRooms(r.data))).catch(() => {});
+      }
     };
 
     socket.on('user_typing', handleTyping);
@@ -84,7 +105,7 @@ const ChatDrawer = () => {
       socket.off('user_stop_typing', handleStopTyping);
       socket.off('chat_notification', handleChatNotification);
     };
-  }, [activeRoom, dispatch]);
+  }, [activeRoom, dispatch, isOpen]);
 
   const handleSend = () => {
     if (!messageText.trim() || !activeRoom) return;

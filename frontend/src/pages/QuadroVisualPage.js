@@ -76,6 +76,7 @@ const initialState = {
   showGrid: false,
   showPoints: true,
   gridSize: 24,
+  dotSpacing: 60,  // espaçamento entre pontos decorativos
 };
 
 function boardReducer(state, action) {
@@ -120,6 +121,8 @@ function boardReducer(state, action) {
       return { ...state, showGrid: !state.showGrid };
     case 'TOGGLE_POINTS':
       return { ...state, showPoints: !state.showPoints };
+    case 'SET_DOT_SPACING':
+      return { ...state, dotSpacing: action.payload };
     case 'UNDO': {
       if (state.past.length === 0) return state;
       const prev = state.past[state.past.length - 1];
@@ -648,15 +651,28 @@ const PostItViewModal = ({ element, onClose, onEdit }) => {
   const txtColor = isDark ? '#fff' : '#222';
   const borderColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)';
 
+  // Fechar com ESC
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   return (
     <Box
       onClick={onClose}
       sx={{
         position: 'fixed', inset: 0, zIndex: 3000,
-        bgcolor: 'rgba(0,0,0,0.82)',
+        bgcolor: 'rgba(0,0,0,0.85)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backdropFilter: 'blur(6px)',
+        backdropFilter: 'blur(8px)',
         p: 2,
+        animation: 'fadeInModal 0.18s ease',
+        '@keyframes fadeInModal': {
+          from: { opacity: 0 },
+          to: { opacity: 1 },
+        },
       }}
     >
       <Paper
@@ -666,11 +682,16 @@ const PostItViewModal = ({ element, onClose, onEdit }) => {
           bgcolor: element.bgColor || '#FFF9C4',
           borderRadius: 4,
           overflow: 'hidden',
-          width: { xs: '95vw', sm: '80vw', md: '60vw', lg: '50vw' },
-          maxWidth: 740,
-          maxHeight: '88vh',
+          width: { xs: '95vw', sm: '80vw', md: '62vw', lg: '52vw' },
+          maxWidth: 780,
+          maxHeight: '90vh',
           display: 'flex', flexDirection: 'column',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06)',
+          boxShadow: '0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.08)',
+          animation: 'slideUpModal 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+          '@keyframes slideUpModal': {
+            from: { transform: 'scale(0.92) translateY(16px)', opacity: 0 },
+            to: { transform: 'scale(1) translateY(0)', opacity: 1 },
+          },
         }}
       >
         {/* Cabeçalho */}
@@ -690,8 +711,12 @@ const PostItViewModal = ({ element, onClose, onEdit }) => {
               sx={{ bgcolor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)', color: txtColor, fontSize: 11, fontWeight: 600 }}
             />
           )}
+          <Typography variant="caption" sx={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)', ml: 1, fontSize: 10 }}>
+            ESC para fechar
+          </Typography>
           <IconButton
             size="small" onClick={onClose}
+
             sx={{ color: txtColor, opacity: 0.6, ml: 0.5, '&:hover': { opacity: 1, bgcolor: 'rgba(0,0,0,0.1)' } }}
           >
             <Close fontSize="small" />
@@ -1091,6 +1116,10 @@ const QuadroVisualPage = () => {
       pencilPaths: state.pencilPaths,
       bgColor: state.bgColor,
       bgImage: state.bgImage,
+      showGrid: state.showGrid,
+      showPoints: state.showPoints,
+      dotSpacing: state.dotSpacing,
+      gridSize: state.gridSize,
     }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1337,6 +1366,21 @@ const QuadroVisualPage = () => {
           </IconButton>
         </Tooltip>
 
+        {/* Densidade dos pontos (só visível quando pontos estão ativos) */}
+        {state.showPoints && !state.showGrid && (
+          <Tooltip title={`Espaçamento dos pontos: ${state.dotSpacing || 60}px`}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: 80 }}>
+              <Slider
+                size="small"
+                min={20} max={120} step={10}
+                value={state.dotSpacing || 60}
+                onChange={(_, v) => dispatch({ type: 'SET_DOT_SPACING', payload: v })}
+                sx={{ color: 'primary.main' }}
+              />
+            </Box>
+          </Tooltip>
+        )}
+
         <Box sx={{ flexGrow: 1 }} />
 
         {/* Deletar selecionados */}
@@ -1446,15 +1490,20 @@ const QuadroVisualPage = () => {
             {state.showGrid && <rect x={0} y={0} width={svgWidth} height={svgHeight} fill="url(#grid)" />}
 
             {/* Pontos decorativos */}
-            {state.showPoints && !state.showGrid && Array.from({ length: 40 }).map((_, ri) =>
-              Array.from({ length: 60 }).map((_, ci) => (
-                <circle
-                  key={`dot_${ri}_${ci}`}
-                  cx={ci * 60 + 30} cy={ri * 60 + 30} r={1.2}
-                  fill={darkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}
-                />
-              ))
-            )}
+            {state.showPoints && !state.showGrid && (() => {
+              const sp = state.dotSpacing || 60;
+              const cols = Math.ceil(svgWidth / sp) + 1;
+              const rows = Math.ceil(svgHeight / sp) + 1;
+              return Array.from({ length: rows }).map((_, ri) =>
+                Array.from({ length: cols }).map((_, ci) => (
+                  <circle
+                    key={`dot_${ri}_${ci}`}
+                    cx={ci * sp + sp / 2} cy={ri * sp + sp / 2} r={1.3}
+                    fill={darkBg ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'}
+                  />
+                ))
+              );
+            })()}
 
             {/* Elementos */}
             {state.elements.map(el => {
