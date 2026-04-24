@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   Box, Card, CardContent, TextField, Button, Typography,
-  Alert, CircularProgress,
-  Chip, Divider, InputAdornment, IconButton
+  Alert, CircularProgress, Chip, Divider, InputAdornment,
+  IconButton, FormControlLabel, Checkbox
 } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { Visibility, VisibilityOff, LockClock } from '@mui/icons-material';
 import { loginStart, loginSuccess, loginFailure } from '../store/slices/authSlice';
 import { authAPI } from '../services/api';
 import toast from 'react-hot-toast';
@@ -18,12 +18,16 @@ const DEPT_ICONS = {
 const LoginPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { sessionExpiredAt } = useSelector(s => s.auth);
 
   const [departments, setDepartments] = useState([]);
   const [selectedDept, setSelectedDept] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(
+    () => !!localStorage.getItem('relmdesk_remember')
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,6 +39,15 @@ const LoginPage = () => {
     }).catch(() => {});
   }, []);
 
+  // Persistir preferência de remember-me
+  useEffect(() => {
+    if (rememberMe) {
+      localStorage.setItem('relmdesk_remember', '1');
+    } else {
+      localStorage.removeItem('relmdesk_remember');
+    }
+  }, [rememberMe]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!selectedDept?.is_active) {
@@ -45,8 +58,13 @@ const LoginPage = () => {
     setError('');
     dispatch(loginStart());
     try {
-      const { data } = await authAPI.login({ email, password, department_id: selectedDept?.id });
-      dispatch(loginSuccess(data));
+      const { data } = await authAPI.login({
+        email,
+        password,
+        department_id: selectedDept?.id,
+        remember_me: rememberMe,
+      });
+      dispatch(loginSuccess({ ...data, rememberMe }));
       toast.success(`Bem-vindo(a), ${data.user.name}! 👋`);
       navigate('/dashboard');
     } catch (err) {
@@ -66,9 +84,7 @@ const LoginPage = () => {
           src="/logo-color.png"
           alt="RelmDesk"
           style={{ maxWidth: 280, width: '100%' }}
-          onError={(e) => {
-            e.target.style.display = 'none';
-          }}
+          onError={(e) => { e.target.style.display = 'none'; }}
         />
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mt: 1 }}>
           Sistema de Helpdesk
@@ -98,6 +114,17 @@ const LoginPage = () => {
         ))}
       </Box>
 
+      {/* Aviso de sessão expirada */}
+      {sessionExpiredAt && (
+        <Alert
+          severity="warning"
+          icon={<LockClock />}
+          sx={{ mb: 2, borderRadius: 2 }}
+        >
+          Sua sessão expirou por inatividade. Por segurança, faça login novamente.
+        </Alert>
+      )}
+
       {/* Login card */}
       <Card elevation={0} sx={{ borderRadius: 3, overflow: 'visible', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
         <CardContent sx={{ p: 4 }}>
@@ -123,7 +150,7 @@ const LoginPage = () => {
               fullWidth label="Senha" value={password}
               onChange={e => setPassword(e.target.value)}
               type={showPassword ? 'text' : 'password'}
-              required sx={{ mb: 3 }} size="small"
+              required sx={{ mb: 1.5 }} size="small"
               autoComplete="current-password"
               InputProps={{
                 endAdornment: (
@@ -135,6 +162,25 @@ const LoginPage = () => {
                 )
               }}
             />
+
+            {/* Checkbox: Manter este browser conectado */}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  size="small"
+                  color="primary"
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  Manter este browser conectado
+                </Typography>
+              }
+              sx={{ mb: 2, ml: 0.5 }}
+            />
+
             <Button
               fullWidth type="submit" variant="contained" size="large"
               disabled={loading || !selectedDept?.is_active}
@@ -148,7 +194,7 @@ const LoginPage = () => {
 
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              Cliente com problema? {' '}
+              Cliente com problema?{' '}
               <Typography
                 component="a"
                 href="/abrir-ticket"

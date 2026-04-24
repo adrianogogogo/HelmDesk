@@ -22,38 +22,69 @@ const init = (io) => {
     // Join room
     socket.on('join_room', (roomId) => {
       socket.join(`room:${roomId}`);
+      socket.currentRoom = roomId;
+    });
+
+    // Leave room
+    socket.on('leave_room', (roomId) => {
+      socket.leave(`room:${roomId}`);
+      if (socket.currentRoom === roomId) socket.currentRoom = null;
     });
 
     // Send message
     socket.on('send_message', async (data) => {
       const { room_id, message } = data;
       const userId = socket.userId;
-      if (!userId || !room_id || !message) return;
+      if (!userId || !room_id || !message?.trim()) return;
 
       try {
-        // Verify membership
-        const { rows: member } = await pool.query(
-          'SELECT id FROM chat_room_members WHERE room_id=$1 AND user_id=$2', [room_id, userId]
+        // Verificar membros da sala
+        const { rows: members } = await pool.query(
+          'SELECT user_id FROM chat_room_members WHERE room_id=$1', [room_id]
         );
-        if (!member.length) return;
+        const memberIds = members.map(m => m.user_id);
+        if (!memberIds.includes(userId)) return;
 
+        // Salvar mensagem
         const { rows } = await pool.query(`
           INSERT INTO chat_messages (room_id, sender_id, message)
           VALUES ($1,$2,$3) RETURNING *
-        `, [room_id, userId, message]);
+        `, [room_id, userId, message.trim()]);
 
-        const { rows: user } = await pool.query(
+        const { rows: userRows } = await pool.query(
           'SELECT name, role, avatar_url FROM users WHERE id=$1', [userId]
         );
 
         const msg = {
           ...rows[0],
-          sender_name: user[0]?.name,
-          sender_role: user[0]?.role,
-          sender_avatar: user[0]?.avatar_url
+          sender_name: userRows[0]?.name,
+          sender_role: userRows[0]?.role,
+          sender_avatar: userRows[0]?.avatar_url,
+          room_id,
         };
 
+        // Emitir para todos na sala
         io.to(`room:${room_id}`).emit('new_message', msg);
+
+        // Notificar membros ausentes da sala (não estão no room: ou chat fechado)
+        for (const memberId of memberIds) {
+          if (memberId === userId) continue;
+          const memberSocketId = connectedUsers.get(memberId);
+          if (memberSocketId) {
+            // Verificar se o membro está na sala (joined)
+            const memberSocket = io.sockets.sockets.get(memberSocketId);
+            const inRoom = memberSocket?.rooms?.has(`room:${room_id}`);
+            if (!inRoom) {
+              // Emitir evento específico de notificação de chat
+              io.to(memberSocketId).emit('chat_notification', {
+                room_id,
+                sender_name: userRows[0]?.name,
+                message: message.trim().substring(0, 80),
+              });
+            }
+          }
+        }
+
       } catch (err) {
         console.error('Socket message error:', err);
       }

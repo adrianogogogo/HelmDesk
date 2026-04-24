@@ -551,7 +551,48 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 | 2026-04-05 | (PR #8) | Fix firewall Locaweb: substituir UFW por iptables-persistent |
 | 2026-04-05 | (PR #9) | Fix filtro responsável tickets, busca 500, Kanban RBAC+popup, clipboard HTTP, loja status, stores auto-login |
 | 2026-04-06 | (PR #10) | Fix busca 500 (DISTINCT ON), WebSocket polling fallback, /meta/statuses rota, atendente lista usuários |
+| 2026-04-24 | (PR #11) | Chat: unread badge TopBar/Sidebar, isChatPage tracking, setIsChatPage; Segurança: remember-me checkbox, JWT 8h/30d, sessionExpired, inatividade 30min, sessionStorage para sessões temporárias, SIDEBAR_WIDTH constants fix |
 
 ---
 
-*Última atualização: 2026-04-06*
+## 🔒 Segurança — Mecanismo de Sessão (2026-04-24)
+
+### Remember-Me
+- **Checkbox na LoginPage**: "Manter este browser conectado"
+  - Marcado → token salvo em `localStorage` (persiste após fechar aba), JWT expira em 30 dias
+  - Desmarcado → token salvo em `sessionStorage` (removido ao fechar aba), JWT expira em 8 horas
+- **Backend**: `authController.generateToken(userId, role, deptId, rememberMe)` — usa `JWT_EXPIRES_IN` (8h) ou `JWT_REMEMBER_EXPIRES` (30d)
+- **authSlice**: campo `rememberMe` no estado; `loginSuccess` recebe `{ token, user, rememberMe }`
+- **api.js**: interceptor lê token de `localStorage || sessionStorage`
+
+### Timeout de Inatividade
+- **MainLayout**: monitora eventos (`mousemove`, `keydown`, `mousedown`, `touchstart`, `scroll`)
+- Se usuário sem remember-me ficar 30 minutos sem interagir → `sessionExpired()` → redirect `/login`
+- **sessionExpired** remove tokens de localStorage e sessionStorage e salva timestamp
+- **LoginPage**: exibe alerta amarelo "Sua sessão expirou por inatividade" se `sessionExpiredAt` estiver setado
+
+### Token Expirado
+- Backend retorna 401 com `{ error: 'Sessão expirada. Faça login novamente.' }`
+- api.js interceptor limpa ambos os storages e redireciona para `/login`
+
+---
+
+## 💬 Chat — Notificações (2026-04-24)
+
+### chatSlice — campo `isChatPage`
+- Novo campo `isChatPage` no estado Redux do chat
+- `ChatPage` despacha `setIsChatPage(true)` no mount e `setIsChatPage(false)` no unmount
+- `addMessage` usa `chatVisible = isOpen || isChatPage` para decidir se incrementa `unread_count`
+- Quando sala é a ativa E chat está visível → não incrementa contador
+- Caso contrário → incrementa `unread_count` da sala + `unreadTotal`
+
+### socket.js — chat_notification
+- Evento `chat_notification` (recebido pelo backend quando membro não está na sala)
+- Agora chama `chatAPI.getRooms()` e despacha `setRooms(r.data)` para recarregar `unread_count` do servidor
+
+### TopBar + Sidebar
+- Badge no ícone Chat da TopBar mostra `chatUnread` (total de não lidos)
+- Badge no menu Chat da Sidebar também exibe `chatUnread`
+- Ao abrir a sala na ChatPage ou ChatDrawer → `markRoomRead(roomId)` zera o contador
+
+*Última atualização: 2026-04-24*

@@ -114,6 +114,7 @@ const TopBar = () => {
   const { user } = useSelector(s => s.auth);
   const { darkMode } = useSelector(s => s.ui);
   const { list: notifList, unread } = useSelector(s => s.notifications);
+  const { unreadTotal: chatUnread } = useSelector(s => s.chat);
   const internalRoles = ['atendente', 'gestor', 'diretor'];
 
   const [anchorEl, setAnchorEl] = useState(null);
@@ -187,7 +188,9 @@ const TopBar = () => {
           {internalRoles.includes(user?.role) && (
             <Tooltip title="Chat interno">
               <IconButton size="small" onClick={() => dispatch(setChatOpen(true))}>
-                <Chat />
+                <Badge badgeContent={chatUnread > 0 ? chatUnread : null} color="error" max={99}>
+                  <Chat />
+                </Badge>
               </IconButton>
             </Tooltip>
           )}

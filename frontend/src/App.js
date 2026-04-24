@@ -21,6 +21,7 @@ import ReportsPage from './pages/ReportsPage';
 import ConfigPage from './pages/ConfigPage';
 import SearchPage from './pages/SearchPage';
 import GamificationPage from './pages/GamificationPage';
+import ChatPage from './pages/ChatPage';
 import OpenTicketPage from './pages/OpenTicketPage';
 import TrackTicketPage from './pages/TrackTicketPage';
 import UsersPage from './pages/UsersPage';
@@ -62,6 +63,7 @@ function App() {
           <Route path="tickets/novo" element={<NewTicketPage />} />
           <Route path="tickets/:id" element={<TicketDetailPage />} />
           <Route path="tarefas" element={<TasksKanbanPage />} />
+          <Route path="chat" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor']}><ChatPage /></ProtectedRoute>} />
           <Route path="produtos" element={<ProductsPage />} />
           <Route path="clientes" element={<ClientsPage />} />
           <Route path="lojas" element={<ProtectedRoute allowedRoles={['gestor','diretor']}><StoresPage /></ProtectedRoute>} />

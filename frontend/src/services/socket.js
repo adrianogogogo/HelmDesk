@@ -1,26 +1,41 @@
 import { io } from 'socket.io-client';
-import { addMessage, updateUserOnline } from '../store/slices/chatSlice';
+import { addMessage, updateUserOnline, setRooms } from '../store/slices/chatSlice';
 import { setNotifications } from '../store/slices/notificationSlice';
-import { notificationAPI } from './api';
+import { notificationAPI, chatAPI } from './api';
 
 let socket = null;
+let _dispatch = null;
 
 export const initSocket = (userId, dispatch) => {
+  _dispatch = dispatch;
   if (socket) socket.disconnect();
 
   socket = io(process.env.REACT_APP_SOCKET_URL || 'http://177.153.39.134:5000', {
-    transports: ['polling', 'websocket'],  // polling primeiro como fallback
+    transports: ['polling', 'websocket'],
     reconnection: true,
     reconnectionDelay: 2000,
-    reconnectionAttempts: 10,
+    reconnectionAttempts: 15,
+    timeout: 20000,
   });
 
   socket.on('connect', () => {
+    console.log('✅ Socket conectado:', socket.id);
     socket.emit('authenticate', userId);
   });
 
+  socket.on('connect_error', (err) => {
+    console.warn('⚠️ Socket connect_error:', err.message);
+  });
+
+  // Nova mensagem recebida enquanto está na sala
   socket.on('new_message', (msg) => {
     dispatch(addMessage(msg));
+  });
+
+  // Notificação de nova mensagem em sala que o usuário não está visualizando
+  socket.on('chat_notification', () => {
+    // Recarrega a lista de salas para atualizar unread_count e last_message
+    chatAPI.getRooms().then(r => dispatch(setRooms(r.data))).catch(() => {});
   });
 
   socket.on('user_online', (data) => {
@@ -28,19 +43,22 @@ export const initSocket = (userId, dispatch) => {
   });
 
   socket.on('ticket_updated', () => {
-    // Reload notifications
     notificationAPI.list().then(r => dispatch(setNotifications(r.data))).catch(() => {});
   });
 
-  socket.on('disconnect', () => { /* reconectando automaticamente */ });
+  socket.on('disconnect', (reason) => {
+    console.log('🔌 Socket desconectado:', reason);
+  });
 
   return socket;
 };
 
 export const getSocket = () => socket;
+export const getDispatch = () => _dispatch;
 export const disconnectSocket = () => socket?.disconnect();
 
 export const joinRoom = (roomId) => socket?.emit('join_room', roomId);
+export const leaveRoom = (roomId) => socket?.emit('leave_room', roomId);
 export const sendMessage = (roomId, message) => socket?.emit('send_message', { room_id: roomId, message });
 export const sendTyping = (roomId, userName) => socket?.emit('typing', { room_id: roomId, user_name: userName });
 export const sendStopTyping = (roomId) => socket?.emit('stop_typing', { room_id: roomId });
