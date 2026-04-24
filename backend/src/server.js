@@ -28,7 +28,11 @@ app.set('io', io);
 // ============================================================
 // Middleware
 // ============================================================
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false, // CSP gerenciado pelo frontend
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://177.153.39.134:3000',
@@ -48,14 +52,34 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { error: 'Muitas requisições. Tente novamente em alguns minutos.' }
 });
 app.use('/api/', apiLimiter);
 
+// Rate limit mais rigoroso para autenticação (evitar brute-force)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20, // 20 tentativas por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas tentativas de login. Aguarde 15 minutos.' },
+  skipSuccessfulRequests: true, // não conta requisições bem-sucedidas
+});
+
+// Middleware de segurança adicional — headers extras
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 // ============================================================
 // Routes
 // ============================================================
-app.use('/api/auth', require('./routes/auth'));
+app.use('/api/auth', authLimiter, require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/departments', require('./routes/departments'));
 app.use('/api/tickets', require('./routes/tickets'));

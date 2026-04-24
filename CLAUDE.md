@@ -551,7 +551,117 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 | 2026-04-05 | (PR #8) | Fix firewall Locaweb: substituir UFW por iptables-persistent |
 | 2026-04-05 | (PR #9) | Fix filtro responsável tickets, busca 500, Kanban RBAC+popup, clipboard HTTP, loja status, stores auto-login |
 | 2026-04-06 | (PR #10) | Fix busca 500 (DISTINCT ON), WebSocket polling fallback, /meta/statuses rota, atendente lista usuários |
+| 2026-04-24 | (PR #11) | Chat: unread badge TopBar/Sidebar, isChatPage tracking, setIsChatPage; Segurança: remember-me checkbox, JWT 8h/30d, sessionExpired, inatividade 30min, sessionStorage para sessões temporárias, SIDEBAR_WIDTH constants fix |
+| 2026-04-24 | (PR #12) | Quadro Visual: nova página /quadro com post-its, formas (retângulo, círculo, losango), setas, texto, desenho livre, borracha, seleção por área, undo/redo, zoom, pan, cor de fundo, imagem de fundo, grade/pontos, exportar/importar JSON; Chat: chat_notification instantâneo via addMessage sem chamada API |
+| 2026-04-24 | (PR #13) | Melhoria visual QuadroVisual: PostItModal redesenhado (responsivo, fundo escuro, header+footer), PostItElement com drop-shadow e hint, ShapeElement com shadow/stroke azul, ArrowElement suporte curvas bezier, atalhos de teclado adicionais (T,R,O,D,A,E); Segurança backend: authLimiter (brute-force), headers X-Frame-Options/X-Content-Type-Options/Referrer-Policy, Helmet relaxado (sem CSP forçado) |
 
 ---
 
-*Última atualização: 2026-04-06*
+## 🔒 Segurança — Mecanismo de Sessão (2026-04-24)
+
+### Remember-Me
+- **Checkbox na LoginPage**: "Manter este browser conectado"
+  - Marcado → token salvo em `localStorage` (persiste após fechar aba), JWT expira em 30 dias
+  - Desmarcado → token salvo em `sessionStorage` (removido ao fechar aba), JWT expira em 8 horas
+- **Backend**: `authController.generateToken(userId, role, deptId, rememberMe)` — usa `JWT_EXPIRES_IN` (8h) ou `JWT_REMEMBER_EXPIRES` (30d)
+- **authSlice**: campo `rememberMe` no estado; `loginSuccess` recebe `{ token, user, rememberMe }`
+- **api.js**: interceptor lê token de `localStorage || sessionStorage`
+
+### Timeout de Inatividade
+- **MainLayout**: monitora eventos (`mousemove`, `keydown`, `mousedown`, `touchstart`, `scroll`)
+- Se usuário sem remember-me ficar 30 minutos sem interagir → `sessionExpired()` → redirect `/login`
+- **sessionExpired** remove tokens de localStorage e sessionStorage e salva timestamp
+- **LoginPage**: exibe alerta amarelo "Sua sessão expirou por inatividade" se `sessionExpiredAt` estiver setado
+
+### Token Expirado
+- Backend retorna 401 com `{ error: 'Sessão expirada. Faça login novamente.' }`
+- api.js interceptor limpa ambos os storages e redireciona para `/login`
+
+---
+
+## 💬 Chat — Notificações (2026-04-24)
+
+### chatSlice — campo `isChatPage`
+- Novo campo `isChatPage` no estado Redux do chat
+- `ChatPage` despacha `setIsChatPage(true)` no mount e `setIsChatPage(false)` no unmount
+- `addMessage` usa `chatVisible = isOpen || isChatPage` para decidir se incrementa `unread_count`
+- Quando sala é a ativa E chat está visível → não incrementa contador
+- Caso contrário → incrementa `unread_count` da sala + `unreadTotal`
+
+### socket.js — chat_notification (otimizado 2026-04-24)
+- `chat_notification` agora usa `addMessage` localmente (sem chamada API) para atualização instantânea
+- Só faz fallback para `chatAPI.getRooms()` se o evento não trouxer `room_id`
+- Evento `chat_notification` (recebido pelo backend quando membro não está na sala)
+- Agora chama `chatAPI.getRooms()` e despacha `setRooms(r.data)` para recarregar `unread_count` do servidor
+
+### TopBar + Sidebar
+- Badge no ícone Chat da TopBar mostra `chatUnread` (total de não lidos)
+- Badge no menu Chat da Sidebar também exibe `chatUnread`
+- Ao abrir a sala na ChatPage ou ChatDrawer → `markRoomRead(roomId)` zera o contador
+
+---
+
+## 🖼️ Quadro Visual (2026-04-24)
+
+### Página
+- Rota: `/quadro` — acesso: `atendente`, `gestor`, `diretor`
+- Arquivo: `frontend/src/pages/QuadroVisualPage.js`
+- Entrada no Sidebar com ícone `GridView`
+
+### Funcionalidades
+- **Post-its**: criar (clicar na tela com ferramenta N), editar (duplo-clique → modal grande centralizado com fundo escuro), arrastar, 12 cores, título + conteúdo + tag, resize via dialog
+- **Formas**: retângulo, círculo/oval, losango (decisão) — cor de preenchimento, borda, texto configuráveis via dialog
+- **Setas**: dois cliques (ponto início → destino); cor, tracejado, rótulo
+- **Texto**: tamanho, cor, negrito, itálico
+- **Desenho livre**: pincel com cor e espessura ajustável + borracha
+- **Seleção por área**: arrastar retângulo sobre elementos
+- **Undo/Redo**: Ctrl+Z / Ctrl+Y; histórico de 50 passos
+- **Zoom**: scroll do mouse ou botões ±10%; ajuste 20%–300%
+- **Pan**: ferramenta mão (H) ou espaço; arrastar o fundo
+- **Cor do fundo**: 8 cores predefinidas + color picker; modo escuro/claro
+- **Imagem de fundo**: upload de imagem local (preserveAspectRatio: xMidYMid slice)
+- **Grade**: padrão de pontos (decorativo) ou grid de linhas toggle
+- **Ocultar pontos**: toggle para visual limpo
+- **Exportar/Importar**: salva `quadro_AAAA-MM-DD.json` com elementos + pencilPaths + bgColor + bgImage
+- **Atalhos**: V=selecionar, H=pan, N=post-it, T=texto, R=retângulo, O=círculo, D=losango, A=seta, P=pincel, E=borracha, Del=deletar, Esc=cancelar
+- **Seta curva**: toggle "Curva" no dialog de edição da seta (usa `path Q` bezier suave)
+
+### Arquitetura
+- **Estado**: `useReducer` + reducer `boardReducer` (undo/redo via `past`/`future`)
+- **Renderização**: SVG principal para elementos (post-its, formas, setas, texto) + `<canvas>` HTML5 sobreposto para desenho livre
+- **Canvas**: ativo apenas nos modos draw/erase; `zIndex: -1` no resto (SVG recebe eventos)
+- **Post-it modal**: `PostItViewModal` redesenhado (fundo escuro 82% opacidade, blur 6px, modal responsivo, cabeçalho+footer fixos, scroll no conteúdo, largura 50–95vw)
+- **Componentes**: `PostItElement` (drop-shadow, faixa superior, hint duplo-clique), `ShapeElement` (drop-shadow, stroke azul padrão), `TextElement`, `ArrowElement` (suporte a curvas bezier, strokeLinecap round), `EditElementDialog`
+- **Segurança backend (2026-04-24)**: `authLimiter` (20 req/15min para `/api/auth`), headers `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`; Helmet sem CSP forçado
+
+---
+
+## 🔒 Segurança Backend — Melhorias (2026-04-24)
+
+### Rate Limiter de Autenticação
+```js
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20, // 20 tentativas por IP
+  skipSuccessfulRequests: true, // não conta logins bem-sucedidos
+});
+app.use('/api/auth', authLimiter, require('./routes/auth'));
+```
+
+### Headers de Segurança Extras
+```js
+res.setHeader('X-Content-Type-Options', 'nosniff');
+res.setHeader('X-Frame-Options', 'DENY');
+res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+```
+
+### Helmet (2026-04-24)
+```js
+helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false, // CSP gerenciado pelo frontend
+  crossOriginEmbedderPolicy: false,
+})
+```
+
+*Última atualização: 2026-04-24*

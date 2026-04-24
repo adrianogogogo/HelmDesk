@@ -9,7 +9,9 @@ const api = axios.create({
 // Request interceptor — add token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('relmdesk_token');
+    const token =
+      localStorage.getItem('relmdesk_token') ||
+      sessionStorage.getItem('relmdesk_token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
@@ -23,6 +25,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('relmdesk_token');
       localStorage.removeItem('relmdesk_user');
+      sessionStorage.removeItem('relmdesk_token');
+      sessionStorage.removeItem('relmdesk_user');
       window.location.href = '/login';
     }
     const message = error.response?.data?.error || error.message || 'Erro inesperado';

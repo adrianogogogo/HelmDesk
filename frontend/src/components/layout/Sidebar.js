@@ -3,30 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   Box, List, ListItem, ListItemButton, ListItemIcon,
-  ListItemText, Divider, Tooltip, Typography, Avatar, Chip
+  ListItemText, Divider, Tooltip, Typography, Avatar, Chip, Badge
 } from '@mui/material';
 import {
   Dashboard, ConfirmationNumber, Assignment, Inventory2,
   People, BarChart, Settings, Search, SportsScore,
-  Store, Group, ChevronLeft, ChevronRight
+  Store, Group, ChevronLeft, ChevronRight, Forum, GridView
 } from '@mui/icons-material';
 import { toggleSidebar } from '../../store/slices/uiSlice';
-
-const menuItems = [
-  { label: 'Dashboard',      icon: <Dashboard />,         path: '/dashboard',    roles: ['atendente','gestor','diretor','loja','cliente'] },
-  { label: 'Tickets',        icon: <ConfirmationNumber />, path: '/tickets',      roles: ['atendente','gestor','diretor','loja','cliente'] },
-  { label: 'Tarefas',        icon: <Assignment />,         path: '/tarefas',      roles: ['atendente','gestor','diretor'] },
-  { label: 'Busca',          icon: <Search />,             path: '/busca',        roles: ['atendente','gestor','diretor','loja','cliente'] },
-  { divider: true },
-  { label: 'Produtos',       icon: <Inventory2 />,         path: '/produtos',     roles: ['atendente','gestor','diretor'] },
-  { label: 'Clientes',       icon: <People />,             path: '/clientes',     roles: ['atendente','gestor','diretor'] },
-  { label: 'Lojas',          icon: <Store />,              path: '/lojas',        roles: ['gestor','diretor'] },
-  { label: 'Usuários',       icon: <Group />,              path: '/usuarios',     roles: ['gestor','diretor'] },
-  { divider: true },
-  { label: 'Futebol da Relm',icon: <SportsScore />,        path: '/futebol',      roles: ['atendente','gestor','diretor'] },
-  { label: 'Relatórios',     icon: <BarChart />,           path: '/relatorios',   roles: ['gestor','diretor'] },
-  { label: 'Configurações',  icon: <Settings />,           path: '/configuracoes',roles: ['gestor','diretor'] },
-];
 
 const SIDEBAR_WIDTH = 260;
 const SIDEBAR_COLLAPSED = 70;
@@ -37,6 +21,25 @@ const Sidebar = () => {
   const dispatch = useDispatch();
   const { sidebarOpen } = useSelector(s => s.ui);
   const { user } = useSelector(s => s.auth);
+  const { unreadTotal: chatUnread } = useSelector(s => s.chat);
+
+  const menuItems = [
+    { label: 'Dashboard',      icon: <Dashboard />,         path: '/dashboard',    roles: ['atendente','gestor','diretor','loja','cliente'] },
+    { label: 'Tickets',        icon: <ConfirmationNumber />, path: '/tickets',      roles: ['atendente','gestor','diretor','loja','cliente'] },
+    { label: 'Tarefas',        icon: <Assignment />,         path: '/tarefas',      roles: ['atendente','gestor','diretor'] },
+    { label: 'Chat',           icon: <Forum />,              path: '/chat',         roles: ['atendente','gestor','diretor'], badge: chatUnread },
+    { label: 'Quadro Visual',  icon: <GridView />,           path: '/quadro',       roles: ['atendente','gestor','diretor'] },
+    { label: 'Busca',          icon: <Search />,             path: '/busca',        roles: ['atendente','gestor','diretor','loja','cliente'] },
+    { divider: true },
+    { label: 'Produtos',       icon: <Inventory2 />,         path: '/produtos',     roles: ['atendente','gestor','diretor'] },
+    { label: 'Clientes',       icon: <People />,             path: '/clientes',     roles: ['atendente','gestor','diretor'] },
+    { label: 'Lojas',          icon: <Store />,              path: '/lojas',        roles: ['gestor','diretor'] },
+    { label: 'Usuários',       icon: <Group />,              path: '/usuarios',     roles: ['gestor','diretor'] },
+    { divider: true },
+    { label: 'Futebol da Relm',icon: <SportsScore />,        path: '/futebol',      roles: ['atendente','gestor','diretor'] },
+    { label: 'Relatórios',     icon: <BarChart />,           path: '/relatorios',   roles: ['gestor','diretor'] },
+    { label: 'Configurações',  icon: <Settings />,           path: '/configuracoes',roles: ['gestor','diretor'] },
+  ];
 
   const currentWidth = sidebarOpen ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED;
 
@@ -155,7 +158,13 @@ const Sidebar = () => {
                     },
                   }}
                 >
-                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemIcon>
+                    {item.badge > 0 ? (
+                      <Badge badgeContent={item.badge} color="error" max={99}>
+                        {item.icon}
+                      </Badge>
+                    ) : item.icon}
+                  </ListItemIcon>
                   {sidebarOpen && (
                     <ListItemText
                       primary={item.label}

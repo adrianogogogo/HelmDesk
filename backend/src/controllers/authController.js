@@ -5,18 +5,22 @@ const { v4: uuidv4 } = require('uuid');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'relmdesk_jwt_secret_super_secure_2024_bikes_relm';
 
-const generateToken = (userId, role, departmentId) => {
+const generateToken = (userId, role, departmentId, rememberMe = false) => {
+  // remember-me = 30 dias; sessão normal = 8 horas
+  const expiresIn = rememberMe
+    ? (process.env.JWT_REMEMBER_EXPIRES || '30d')
+    : (process.env.JWT_EXPIRES_IN || '8h');
   return jwt.sign(
-    { userId, role, departmentId },
+    { userId, role, departmentId, rememberMe },
     JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    { expiresIn }
   );
 };
 
 // POST /api/auth/login
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, remember_me } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'E-mail e senha são obrigatórios' });
     }
@@ -47,7 +51,7 @@ const login = async (req, res, next) => {
       console.warn('⚠️  Aviso: falha ao registrar audit_log no login:', auditErr.message);
     }
 
-    const token = generateToken(user.id, user.role, user.department_id);
+    const token = generateToken(user.id, user.role, user.department_id, !!remember_me);
 
     res.json({
       token,

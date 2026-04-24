@@ -21,11 +21,13 @@ import ReportsPage from './pages/ReportsPage';
 import ConfigPage from './pages/ConfigPage';
 import SearchPage from './pages/SearchPage';
 import GamificationPage from './pages/GamificationPage';
+import ChatPage from './pages/ChatPage';
 import OpenTicketPage from './pages/OpenTicketPage';
 import TrackTicketPage from './pages/TrackTicketPage';
 import UsersPage from './pages/UsersPage';
 import StoresPage from './pages/StoresPage';
 import NotFoundPage from './pages/NotFoundPage';
+import QuadroVisualPage from './pages/QuadroVisualPage';
 
 // Protected route
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -62,6 +64,7 @@ function App() {
           <Route path="tickets/novo" element={<NewTicketPage />} />
           <Route path="tickets/:id" element={<TicketDetailPage />} />
           <Route path="tarefas" element={<TasksKanbanPage />} />
+          <Route path="chat" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor']}><ChatPage /></ProtectedRoute>} />
           <Route path="produtos" element={<ProductsPage />} />
           <Route path="clientes" element={<ClientsPage />} />
           <Route path="lojas" element={<ProtectedRoute allowedRoles={['gestor','diretor']}><StoresPage /></ProtectedRoute>} />
@@ -70,6 +73,7 @@ function App() {
           <Route path="configuracoes" element={<ProtectedRoute allowedRoles={['gestor','diretor']}><ConfigPage /></ProtectedRoute>} />
           <Route path="busca" element={<SearchPage />} />
           <Route path="futebol" element={<GamificationPage />} />
+          <Route path="quadro" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor']}><QuadroVisualPage /></ProtectedRoute>} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
