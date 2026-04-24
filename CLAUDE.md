@@ -553,6 +553,7 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 | 2026-04-06 | (PR #10) | Fix busca 500 (DISTINCT ON), WebSocket polling fallback, /meta/statuses rota, atendente lista usuários |
 | 2026-04-24 | (PR #11) | Chat: unread badge TopBar/Sidebar, isChatPage tracking, setIsChatPage; Segurança: remember-me checkbox, JWT 8h/30d, sessionExpired, inatividade 30min, sessionStorage para sessões temporárias, SIDEBAR_WIDTH constants fix |
 | 2026-04-24 | (PR #12) | Quadro Visual: nova página /quadro com post-its, formas (retângulo, círculo, losango), setas, texto, desenho livre, borracha, seleção por área, undo/redo, zoom, pan, cor de fundo, imagem de fundo, grade/pontos, exportar/importar JSON; Chat: chat_notification instantâneo via addMessage sem chamada API |
+| 2026-04-24 | (PR #13) | Melhoria visual QuadroVisual: PostItModal redesenhado (responsivo, fundo escuro, header+footer), PostItElement com drop-shadow e hint, ShapeElement com shadow/stroke azul, ArrowElement suporte curvas bezier, atalhos de teclado adicionais (T,R,O,D,A,E); Segurança backend: authLimiter (brute-force), headers X-Frame-Options/X-Content-Type-Options/Referrer-Policy, Helmet relaxado (sem CSP forçado) |
 
 ---
 
@@ -622,13 +623,45 @@ pm2 logs relmdesk-backend --lines 50  # últimas 50 linhas
 - **Grade**: padrão de pontos (decorativo) ou grid de linhas toggle
 - **Ocultar pontos**: toggle para visual limpo
 - **Exportar/Importar**: salva `quadro_AAAA-MM-DD.json` com elementos + pencilPaths + bgColor + bgImage
-- **Atalhos**: V=selecionar, H=pan, N=post-it, P=desenho, Del=deletar selecionados, Esc=cancelar
+- **Atalhos**: V=selecionar, H=pan, N=post-it, T=texto, R=retângulo, O=círculo, D=losango, A=seta, P=pincel, E=borracha, Del=deletar, Esc=cancelar
+- **Seta curva**: toggle "Curva" no dialog de edição da seta (usa `path Q` bezier suave)
 
 ### Arquitetura
 - **Estado**: `useReducer` + reducer `boardReducer` (undo/redo via `past`/`future`)
 - **Renderização**: SVG principal para elementos (post-its, formas, setas, texto) + `<canvas>` HTML5 sobreposto para desenho livre
 - **Canvas**: ativo apenas nos modos draw/erase; `zIndex: -1` no resto (SVG recebe eventos)
-- **Post-it modal**: `PostItViewModal` (fundo escuro, centrado, fullscreen) ativado por duplo-clique
-- **Componentes**: `PostItElement`, `ShapeElement`, `TextElement`, `ArrowElement`, `EditElementDialog`
+- **Post-it modal**: `PostItViewModal` redesenhado (fundo escuro 82% opacidade, blur 6px, modal responsivo, cabeçalho+footer fixos, scroll no conteúdo, largura 50–95vw)
+- **Componentes**: `PostItElement` (drop-shadow, faixa superior, hint duplo-clique), `ShapeElement` (drop-shadow, stroke azul padrão), `TextElement`, `ArrowElement` (suporte a curvas bezier, strokeLinecap round), `EditElementDialog`
+- **Segurança backend (2026-04-24)**: `authLimiter` (20 req/15min para `/api/auth`), headers `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`; Helmet sem CSP forçado
+
+---
+
+## 🔒 Segurança Backend — Melhorias (2026-04-24)
+
+### Rate Limiter de Autenticação
+```js
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20, // 20 tentativas por IP
+  skipSuccessfulRequests: true, // não conta logins bem-sucedidos
+});
+app.use('/api/auth', authLimiter, require('./routes/auth'));
+```
+
+### Headers de Segurança Extras
+```js
+res.setHeader('X-Content-Type-Options', 'nosniff');
+res.setHeader('X-Frame-Options', 'DENY');
+res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+```
+
+### Helmet (2026-04-24)
+```js
+helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false, // CSP gerenciado pelo frontend
+  crossOriginEmbedderPolicy: false,
+})
+```
 
 *Última atualização: 2026-04-24*

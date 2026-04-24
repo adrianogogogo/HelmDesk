@@ -15,7 +15,8 @@ import {
   ArrowRightAlt, AccountTree, Note, Wallpaper,
   Visibility, VisibilityOff, GridOn, Close,
   FormatColorFill, TextFields, Gesture, SelectAll,
-  NoteAdd, FitScreen, Circle
+  NoteAdd, FitScreen, Circle, Hexagon, ChangeHistory,
+  AutoAwesome, Hub, LinearScale
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 
@@ -155,7 +156,8 @@ function boardReducer(state, action) {
 // ─── Componente de Post-it no SVG ───────────────────────────────────────────
 const PostItElement = ({ el, selected, onSelect, onMove, onDoubleClick, darkBg }) => {
   const isDark = ['#1E2A3A', '#212121'].includes(el.bgColor || '#FFF9C4');
-  const textColor = isDark ? '#fff' : '#333';
+  const textColor = isDark ? '#fff' : '#222';
+  const shadowColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.18)';
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef(null);
 
@@ -180,46 +182,52 @@ const PostItElement = ({ el, selected, onSelect, onMove, onDoubleClick, darkBg }
 
   const w = el.width || 180;
   const h = el.height || 120;
+  const r = 6; // corner radius
 
   return (
     <g
       transform={`translate(${el.x},${el.y})`}
-      style={{ cursor: dragging ? 'grabbing' : 'grab' }}
+      style={{ cursor: dragging ? 'grabbing' : 'grab', filter: selected ? 'drop-shadow(0 0 6px rgba(21,101,192,0.7))' : `drop-shadow(3px 5px 8px ${shadowColor})` }}
       onMouseDown={handleMouseDown}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(el); }}
     >
-      {/* sombra */}
-      <rect x={4} y={4} width={w} height={h} rx={3} fill="rgba(0,0,0,0.12)" />
       {/* corpo */}
       <rect
-        x={0} y={0} width={w} height={h} rx={3}
+        x={0} y={0} width={w} height={h} rx={r}
         fill={el.bgColor || '#FFF9C4'}
-        stroke={selected ? '#1565C0' : 'rgba(0,0,0,0.15)'}
-        strokeWidth={selected ? 2 : 1}
+        stroke={selected ? '#1565C0' : 'rgba(0,0,0,0.12)'}
+        strokeWidth={selected ? 2.5 : 1}
       />
-      {/* dobra */}
+      {/* faixa superior */}
+      <rect
+        x={0} y={0} width={w} height={10} rx={r}
+        fill={isDark ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.07)'}
+      />
+      <rect x={0} y={5} width={w} height={5} fill={isDark ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.07)'} />
+      {/* dobra no canto */}
       <polygon
-        points={`${w - 16},0 ${w},16 ${w - 16},16`}
-        fill="rgba(0,0,0,0.1)"
+        points={`${w - 18},0 ${w},18 ${w - 18},18`}
+        fill={isDark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.12)'}
       />
+      <line x1={w - 18} y1={0} x2={w - 18} y2={18} stroke={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'} strokeWidth={0.5} />
       {/* título */}
       {el.title && (
         <text
-          x={10} y={22}
-          fontSize={13} fontWeight={700}
+          x={10} y={26}
+          fontSize={12} fontWeight={700}
           fill={textColor}
           style={{ userSelect: 'none', pointerEvents: 'none' }}
         >
-          {el.title.length > 20 ? el.title.slice(0, 20) + '…' : el.title}
+          {el.title.length > 22 ? el.title.slice(0, 22) + '…' : el.title}
         </text>
       )}
       {/* conteúdo */}
       {el.content && (
-        <foreignObject x={8} y={el.title ? 28 : 10} width={w - 16} height={h - (el.title ? 38 : 20)}>
+        <foreignObject x={8} y={el.title ? 32 : 14} width={w - 16} height={h - (el.title ? 44 : 26)}>
           <div
             xmlns="http://www.w3.org/1999/xhtml"
             style={{
-              fontSize: 11, color: textColor, lineHeight: 1.4,
+              fontSize: 10.5, color: textColor, lineHeight: 1.45,
               overflow: 'hidden', wordBreak: 'break-word',
               whiteSpace: 'pre-wrap',
               userSelect: 'none', pointerEvents: 'none',
@@ -231,11 +239,17 @@ const PostItElement = ({ el, selected, onSelect, onMove, onDoubleClick, darkBg }
       )}
       {/* tag */}
       {el.tag && (
-        <rect x={8} y={h - 18} width={el.tag.length * 7 + 8} height={14} rx={7} fill="rgba(0,0,0,0.15)" />
+        <g>
+          <rect x={6} y={h - 17} width={el.tag.length * 6.5 + 10} height={13} rx={6} fill={isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.12)'} />
+          <text x={11} y={h - 8} fontSize={8.5} fill={textColor} style={{ userSelect: 'none', pointerEvents: 'none', fontWeight: 600 }}>
+            {el.tag}
+          </text>
+        </g>
       )}
-      {el.tag && (
-        <text x={12} y={h - 8} fontSize={9} fill={textColor} style={{ userSelect: 'none', pointerEvents: 'none' }}>
-          {el.tag}
+      {/* duplo-clique hint quando selecionado */}
+      {selected && (
+        <text x={w / 2} y={h + 13} fontSize={9} fill="#1565C0" textAnchor="middle" style={{ userSelect: 'none', pointerEvents: 'none', opacity: 0.7 }}>
+          duplo-clique para expandir
         </text>
       )}
     </g>
@@ -265,19 +279,23 @@ const ShapeElement = ({ el, selected, onSelect, onMove, onDoubleClick }) => {
 
   const w = el.width || 120;
   const h = el.height || 60;
-  const stroke = selected ? '#1565C0' : (el.strokeColor || '#555');
-  const sw = selected ? 2.5 : (el.strokeWidth || 1.5);
+  const stroke = selected ? '#1565C0' : (el.strokeColor || '#1565C0');
+  const sw = selected ? 2.5 : (el.strokeWidth || 1.8);
+  const fill = el.fill || 'rgba(21,101,192,0.1)';
+  const shadowFilter = selected
+    ? 'drop-shadow(0 0 5px rgba(21,101,192,0.7))'
+    : 'drop-shadow(2px 3px 5px rgba(0,0,0,0.15))';
 
   const renderShape = () => {
     switch (el.type) {
       case SHAPE_TYPES.RECT:
-        return <rect x={0} y={0} width={w} height={h} rx={el.rounded ? 8 : 2} fill={el.fill || 'rgba(21,101,192,0.1)'} stroke={stroke} strokeWidth={sw} />;
+        return <rect x={0} y={0} width={w} height={h} rx={el.rounded ? 10 : 4} fill={fill} stroke={stroke} strokeWidth={sw} />;
       case SHAPE_TYPES.CIRCLE:
-        return <ellipse cx={w / 2} cy={h / 2} rx={w / 2} ry={h / 2} fill={el.fill || 'rgba(21,101,192,0.1)'} stroke={stroke} strokeWidth={sw} />;
+        return <ellipse cx={w / 2} cy={h / 2} rx={w / 2 - sw / 2} ry={h / 2 - sw / 2} fill={fill} stroke={stroke} strokeWidth={sw} />;
       case SHAPE_TYPES.DIAMOND:
         return <polygon
-          points={`${w / 2},0 ${w},${h / 2} ${w / 2},${h} 0,${h / 2}`}
-          fill={el.fill || 'rgba(21,101,192,0.1)'}
+          points={`${w / 2},${sw / 2} ${w - sw / 2},${h / 2} ${w / 2},${h - sw / 2} ${sw / 2},${h / 2}`}
+          fill={fill}
           stroke={stroke} strokeWidth={sw}
         />;
       default:
@@ -288,19 +306,20 @@ const ShapeElement = ({ el, selected, onSelect, onMove, onDoubleClick }) => {
   return (
     <g
       transform={`translate(${el.x},${el.y})`}
-      style={{ cursor: 'grab' }}
+      style={{ cursor: 'grab', filter: shadowFilter }}
       onMouseDown={handleMouseDown}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(el); }}
     >
       {renderShape()}
       {el.label && (
-        <foreignObject x={4} y={h / 2 - 12} width={w - 8} height={28}>
+        <foreignObject x={2} y={h / 2 - 14} width={w - 4} height={30}>
           <div
             xmlns="http://www.w3.org/1999/xhtml"
             style={{
-              fontSize: 12, color: el.textColor || '#333', textAlign: 'center',
+              fontSize: 12, color: el.textColor || '#1a1a2e', textAlign: 'center',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              userSelect: 'none', pointerEvents: 'none', fontWeight: 500,
+              userSelect: 'none', pointerEvents: 'none', fontWeight: 600,
+              letterSpacing: 0.2,
             }}
           >
             {el.label}
@@ -378,33 +397,57 @@ const ArrowElement = ({ el, selected, onSelect, onMove }) => {
   const midX = dx / 2;
   const midY = dy / 2;
   const angle = Math.atan2(dy, dx);
-  const arrowLen = 12;
-  const arrowAngle = 0.4;
+  const arrowLen = 14;
+  const arrowAngle = 0.42;
   const ax1 = dx - arrowLen * Math.cos(angle - arrowAngle);
   const ay1 = dy - arrowLen * Math.sin(angle - arrowAngle);
   const ax2 = dx - arrowLen * Math.cos(angle + arrowAngle);
   const ay2 = dy - arrowLen * Math.sin(angle + arrowAngle);
+  const arrowColor = selected ? '#1565C0' : (el.color || '#1565C0');
+  const sw = selected ? 2.5 : (el.strokeWidth || 2);
+
+  // Ponto de controle para curva suave (se el.curved)
+  const cpx = el.curved ? midX - dy * 0.15 : undefined;
+  const cpy = el.curved ? midY + dx * 0.15 : undefined;
+  const pathD = el.curved
+    ? `M 0 0 Q ${cpx} ${cpy} ${dx} ${dy}`
+    : `M 0 0 L ${dx} ${dy}`;
 
   return (
     <g
       transform={`translate(${el.x},${el.y})`}
-      style={{ cursor: 'grab' }}
+      style={{ cursor: 'grab', filter: selected ? 'drop-shadow(0 0 3px rgba(21,101,192,0.6))' : 'none' }}
       onMouseDown={handleMouseDown}
     >
-      <line
-        x1={0} y1={0} x2={dx} y2={dy}
-        stroke={selected ? '#1565C0' : (el.color || '#555')}
-        strokeWidth={selected ? 2.5 : (el.strokeWidth || 2)}
-        strokeDasharray={el.dashed ? '6 4' : undefined}
+      {/* linha (ou curva) */}
+      <path
+        d={pathD}
+        stroke={arrowColor}
+        strokeWidth={sw}
+        fill="none"
+        strokeDasharray={el.dashed ? '7 4' : undefined}
+        strokeLinecap="round"
       />
+      {/* ponta da seta */}
       <polygon
         points={`${dx},${dy} ${ax1},${ay1} ${ax2},${ay2}`}
-        fill={selected ? '#1565C0' : (el.color || '#555')}
+        fill={arrowColor}
       />
+      {/* rótulo */}
       {el.label && (
-        <text x={midX} y={midY - 6} fontSize={11} fill={el.color || '#555'} textAnchor="middle" style={{ userSelect: 'none' }}>
-          {el.label}
-        </text>
+        <foreignObject x={midX - 50} y={midY - 14} width={100} height={28}>
+          <div
+            xmlns="http://www.w3.org/1999/xhtml"
+            style={{
+              fontSize: 11, color: arrowColor, textAlign: 'center',
+              userSelect: 'none', pointerEvents: 'none', fontWeight: 600,
+              background: 'rgba(255,255,255,0.85)', borderRadius: 4,
+              padding: '1px 4px', display: 'inline-block', width: '100%',
+            }}
+          >
+            {el.label}
+          </div>
+        </foreignObject>
       )}
     </g>
   );
@@ -572,12 +615,16 @@ const EditElementDialog = ({ open, element, onClose, onSave }) => {
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="caption" color="text.secondary">Cor</Typography>
-                  <input type="color" value={form.color || '#555555'} style={{ width: '100%', height: 36, border: 'none', cursor: 'pointer' }}
+                  <input type="color" value={form.color || '#1565C0'} style={{ width: '100%', height: 36, border: 'none', cursor: 'pointer' }}
                     onChange={e => setForm(p => ({ ...p, color: e.target.value }))} />
                 </Box>
                 <FormControlLabel
                   control={<Switch checked={!!form.dashed} onChange={e => setForm(p => ({ ...p, dashed: e.target.checked }))} size="small" />}
                   label="Tracejada"
+                />
+                <FormControlLabel
+                  control={<Switch checked={!!form.curved} onChange={e => setForm(p => ({ ...p, curved: e.target.checked }))} size="small" />}
+                  label="Curva"
                 />
               </Box>
             </>
@@ -598,16 +645,18 @@ const EditElementDialog = ({ open, element, onClose, onSave }) => {
 const PostItViewModal = ({ element, onClose, onEdit }) => {
   if (!element) return null;
   const isDark = ['#1E2A3A', '#212121'].includes(element.bgColor);
-  const txtColor = isDark ? '#fff' : '#333';
+  const txtColor = isDark ? '#fff' : '#222';
+  const borderColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)';
 
   return (
     <Box
       onClick={onClose}
       sx={{
         position: 'fixed', inset: 0, zIndex: 3000,
-        bgcolor: 'rgba(0,0,0,0.75)',
+        bgcolor: 'rgba(0,0,0,0.82)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backdropFilter: 'blur(4px)',
+        backdropFilter: 'blur(6px)',
+        p: 2,
       }}
     >
       <Paper
@@ -615,50 +664,82 @@ const PostItViewModal = ({ element, onClose, onEdit }) => {
         elevation={24}
         sx={{
           bgcolor: element.bgColor || '#FFF9C4',
-          borderRadius: 3,
-          p: 4,
-          minWidth: 340,
-          maxWidth: 560,
-          maxHeight: '80vh',
-          overflow: 'auto',
-          position: 'relative',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
+          borderRadius: 4,
+          overflow: 'hidden',
+          width: { xs: '95vw', sm: '80vw', md: '60vw', lg: '50vw' },
+          maxWidth: 740,
+          maxHeight: '88vh',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06)',
         }}
       >
-        <IconButton
-          size="small" onClick={onClose}
-          sx={{ position: 'absolute', top: 12, right: 12, color: txtColor, opacity: 0.6 }}
-        >
-          <Close />
-        </IconButton>
-
-        {element.tag && (
-          <Chip label={element.tag} size="small"
-            sx={{ mb: 2, bgcolor: 'rgba(0,0,0,0.15)', color: txtColor, fontSize: 11 }}
-          />
-        )}
-
-        {element.title && (
-          <Typography variant="h6" fontWeight={700} sx={{ color: txtColor, mb: 2 }}>
-            {element.title}
+        {/* Cabeçalho */}
+        <Box sx={{
+          display: 'flex', alignItems: 'center', gap: 1,
+          px: 3, py: 2,
+          borderBottom: `1px solid ${borderColor}`,
+          bgcolor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.04)',
+          flexShrink: 0,
+        }}>
+          <Box sx={{ fontSize: 20, lineHeight: 1 }}>🗒️</Box>
+          <Typography variant="h6" fontWeight={700} sx={{ color: txtColor, flex: 1, fontSize: 17 }}>
+            {element.title || 'Post-it'}
           </Typography>
-        )}
+          {element.tag && (
+            <Chip label={element.tag} size="small"
+              sx={{ bgcolor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)', color: txtColor, fontSize: 11, fontWeight: 600 }}
+            />
+          )}
+          <IconButton
+            size="small" onClick={onClose}
+            sx={{ color: txtColor, opacity: 0.6, ml: 0.5, '&:hover': { opacity: 1, bgcolor: 'rgba(0,0,0,0.1)' } }}
+          >
+            <Close fontSize="small" />
+          </IconButton>
+        </Box>
 
-        <Typography
-          variant="body1"
-          sx={{
-            color: txtColor, lineHeight: 1.7, whiteSpace: 'pre-wrap',
-            fontSize: 15,
-          }}
-        >
-          {element.content || '(sem conteúdo)'}
-        </Typography>
+        {/* Conteúdo com scroll */}
+        <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2.5 }}>
+          <Typography
+            variant="body1"
+            sx={{
+              color: txtColor,
+              lineHeight: 1.85,
+              whiteSpace: 'pre-wrap',
+              fontSize: 15.5,
+              minHeight: 60,
+            }}
+          >
+            {element.content || (
+              <span style={{ opacity: 0.45, fontStyle: 'italic' }}>(sem conteúdo)</span>
+            )}
+          </Typography>
+        </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+        {/* Rodapé com botão */}
+        <Box sx={{
+          display: 'flex', justifyContent: 'flex-end', gap: 1,
+          px: 3, py: 2,
+          borderTop: `1px solid ${borderColor}`,
+          bgcolor: isDark ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.03)',
+          flexShrink: 0,
+        }}>
           <Button
-            variant="outlined" size="small" startIcon={<Edit />}
+            variant="text" size="small"
+            onClick={onClose}
+            sx={{ color: txtColor, opacity: 0.6 }}
+          >
+            Fechar
+          </Button>
+          <Button
+            variant="contained" size="small" startIcon={<Edit fontSize="small" />}
             onClick={() => { onClose(); onEdit(element); }}
-            sx={{ borderColor: 'rgba(0,0,0,0.25)', color: txtColor }}
+            sx={{
+              bgcolor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+              color: txtColor,
+              boxShadow: 'none',
+              '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.22)', boxShadow: 'none' },
+            }}
           >
             Editar
           </Button>
@@ -754,7 +835,13 @@ const QuadroVisualPage = () => {
       if (e.key === 'v' && !e.ctrlKey) setActiveTool(TOOLS.SELECT);
       if (e.key === 'h' && !e.ctrlKey) setActiveTool(TOOLS.PAN);
       if (e.key === 'n' && !e.ctrlKey) setActiveTool(TOOLS.POSTIT);
+      if (e.key === 't' && !e.ctrlKey) setActiveTool(TOOLS.TEXT);
+      if (e.key === 'r' && !e.ctrlKey) setActiveTool(TOOLS.RECT);
+      if (e.key === 'o' && !e.ctrlKey) setActiveTool(TOOLS.CIRCLE);
+      if (e.key === 'd' && !e.ctrlKey) setActiveTool(TOOLS.DIAMOND);
+      if (e.key === 'a' && !e.ctrlKey) setActiveTool(TOOLS.ARROW);
       if (e.key === 'p' && !e.ctrlKey) setActiveTool(TOOLS.DRAW);
+      if (e.key === 'e' && !e.ctrlKey) setActiveTool(TOOLS.ERASE);
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -1065,26 +1152,26 @@ const QuadroVisualPage = () => {
     {
       group: 'Navegação',
       tools: [
-        { id: TOOLS.SELECT, icon: <SelectAll />, tip: 'Selecionar (V)' },
-        { id: TOOLS.PAN, icon: <PanTool />, tip: 'Mover quadro (H)' },
+        { id: TOOLS.SELECT, icon: <SelectAll sx={{ fontSize: 18 }} />, tip: 'Selecionar (V)' },
+        { id: TOOLS.PAN, icon: <PanTool sx={{ fontSize: 17 }} />, tip: 'Mover quadro (H)' },
       ]
     },
     {
       group: 'Criar',
       tools: [
-        { id: TOOLS.POSTIT, icon: <Note />, tip: 'Post-it (N)' },
-        { id: TOOLS.TEXT, icon: <TextFields />, tip: 'Texto' },
-        { id: TOOLS.RECT, icon: <CropSquare />, tip: 'Retângulo' },
-        { id: TOOLS.CIRCLE, icon: <RadioButtonUnchecked />, tip: 'Círculo/Oval' },
-        { id: TOOLS.DIAMOND, icon: <AccountTree />, tip: 'Decisão (Losango)' },
-        { id: TOOLS.ARROW, icon: <ArrowRightAlt />, tip: 'Seta (clique início → fim)' },
+        { id: TOOLS.POSTIT, icon: <NoteAdd sx={{ fontSize: 18 }} />, tip: 'Post-it (N)' },
+        { id: TOOLS.TEXT, icon: <TextFields sx={{ fontSize: 18 }} />, tip: 'Texto (T)' },
+        { id: TOOLS.RECT, icon: <CropSquare sx={{ fontSize: 18 }} />, tip: 'Retângulo (R)' },
+        { id: TOOLS.CIRCLE, icon: <RadioButtonUnchecked sx={{ fontSize: 18 }} />, tip: 'Círculo/Oval (O)' },
+        { id: TOOLS.DIAMOND, icon: <ChangeHistory sx={{ fontSize: 18 }} />, tip: 'Losango/Decisão (D)' },
+        { id: TOOLS.ARROW, icon: <ArrowRightAlt sx={{ fontSize: 20 }} />, tip: 'Seta (A) — clique início, clique fim' },
       ]
     },
     {
       group: 'Desenho',
       tools: [
-        { id: TOOLS.DRAW, icon: <Brush />, tip: 'Desenho livre (P)' },
-        { id: TOOLS.ERASE, icon: <Close />, tip: 'Borracha' },
+        { id: TOOLS.DRAW, icon: <Brush sx={{ fontSize: 17 }} />, tip: 'Pincel livre (P)' },
+        { id: TOOLS.ERASE, icon: <AutoAwesome sx={{ fontSize: 17 }} />, tip: 'Borracha (E)' },
       ]
     },
   ];
