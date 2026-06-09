@@ -134,6 +134,8 @@ const login = async (req, res, next) => {
   }
 };
 
+const VALID_ROLES = ['cliente', 'loja', 'atendente', 'gestor', 'diretor'];
+
 // POST /api/auth/register (gestor/diretor cria usuários)
 const register = async (req, res, next) => {
   try {
@@ -142,6 +144,11 @@ const register = async (req, res, next) => {
     const creatorRole = req.user?.role;
     if (!['gestor', 'diretor'].includes(creatorRole)) {
       return res.status(403).json({ error: 'Apenas gestores podem criar usuários' });
+    }
+
+    const effectiveRole = role || 'atendente';
+    if (!VALID_ROLES.includes(effectiveRole)) {
+      return res.status(400).json({ error: `Perfil inválido. Valores permitidos: ${VALID_ROLES.join(', ')}` });
     }
 
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
@@ -153,7 +160,7 @@ const register = async (req, res, next) => {
     const { rows } = await pool.query(
       `INSERT INTO users (id, name, email, password_hash, role, department_id, store_id, phone, cpf, lgpd_consent, lgpd_consent_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, NOW()) RETURNING id, name, email, role`,
-      [uuidv4(), name, email.toLowerCase().trim(), hash, role || 'atendente',
+      [uuidv4(), name, email.toLowerCase().trim(), hash, effectiveRole,
        department_id || 1, store_id || null, phone || null, cpf || null]
     );
 

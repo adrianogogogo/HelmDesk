@@ -24,11 +24,17 @@ router.get('/', authenticate, authorize('atendente', 'gestor', 'diretor'), async
 // POST /api/users — criar usuário (gestor/diretor); delega ao authController.register
 router.post('/', authenticate, authorize('gestor', 'diretor'), register);
 
+const VALID_ROLES = ['cliente', 'loja', 'atendente', 'gestor', 'diretor'];
+
 // PATCH /api/users/:id
 router.patch('/:id', authenticate, authorize('gestor', 'diretor'), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { name, email, role, phone, is_active, department_id, store_id, password } = req.body;
+
+    if (role !== undefined && !VALID_ROLES.includes(role)) {
+      return res.status(400).json({ error: `Perfil inválido. Valores permitidos: ${VALID_ROLES.join(', ')}` });
+    }
 
     if (password) {
       // Se uma nova senha foi fornecida, atualiza com hash

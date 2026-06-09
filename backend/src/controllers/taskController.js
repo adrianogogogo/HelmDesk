@@ -115,6 +115,8 @@ const createTask = async (req, res, next) => {
   }
 };
 
+const VALID_TASK_STATUSES = ['pendente', 'em_andamento', 'concluida'];
+
 // PATCH /api/tasks/:id
 const updateTask = async (req, res, next) => {
   try {
@@ -122,11 +124,13 @@ const updateTask = async (req, res, next) => {
     const { title, description, assigned_to, status, priority, sort_order, due_date } = req.body;
     const user = req.user;
 
+    if (status !== undefined && !VALID_TASK_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Status inválido. Valores permitidos: ${VALID_TASK_STATUSES.join(', ')}` });
+    }
+
     const { rows: current } = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
     if (!current.length) return res.status(404).json({ error: 'Tarefa não encontrada' });
     const task = current[0];
-
-    const completed_at = status === 'concluida' && task.status !== 'concluida' ? 'NOW()' : 'completed_at';
 
     await pool.query(`
       UPDATE tasks SET

@@ -1,6 +1,13 @@
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
+const VALID_PRIORITIES = ['low', 'normal', 'high', 'critical'];
+
+const sanitizeText = (str) => {
+  if (typeof str !== 'string') return str;
+  return str.replace(/<[^>]*>/g, '').trim();
+};
+
 // GET /api/tickets — list with filters
 const getTickets = async (req, res, next) => {
   try {
@@ -12,7 +19,9 @@ const getTickets = async (req, res, next) => {
       exclude_status_ids   // "9,10" para filtro "Ativos"
     } = req.query;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(Math.max(1, parseInt(limit) || 20), 100);
+    const offset = (pageNum - 1) * limitNum;
     const params = [];
     let whereConditions = ['t.is_anonymized = FALSE'];
 
@@ -52,7 +61,7 @@ const getTickets = async (req, res, next) => {
     const { rows: countRows } = await pool.query(countQuery, params);
     const total = parseInt(countRows[0].count);
 
-    params.push(parseInt(limit), offset);
+    params.push(limitNum, offset);
     const dataQuery = `
       SELECT 
         t.id, t.ticket_number, t.title, t.priority, t.created_at, t.updated_at,
@@ -79,7 +88,7 @@ const getTickets = async (req, res, next) => {
     `;
 
     const { rows } = await pool.query(dataQuery, params);
-    res.json({ tickets: rows, total, page: parseInt(page), limit: parseInt(limit) });
+    res.json({ tickets: rows, total, page: pageNum, limit: limitNum });
   } catch (err) {
     next(err);
   }
@@ -198,6 +207,16 @@ const createTicket = async (req, res, next) => {
 
     if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
 
+    if (!VALID_PRIORITIES.includes(priority)) {
+      return res.status(400).json({ error: `Prioridade inválida. Valores permitidos: ${VALID_PRIORITIES.join(', ')}` });
+    }
+
+    if (products.length > 3) {
+      return res.status(400).json({ error: 'Um ticket pode ter no máximo 3 produtos vinculados' });
+    }
+
+    const cleanTitle = sanitizeText(title);
+    const cleanDescription = sanitizeText(description);
     const ballOwner = assigned_to || user.id;
 
     const { rows } = await pool.query(`
@@ -210,7 +229,7 @@ const createTicket = async (req, res, next) => {
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,1)
       RETURNING *
     `, [
-      title, description, department_id, priority, brand_id || null,
+      cleanTitle, cleanDescription, department_id, priority, brand_id || null,
       issue_type_id || null, issue_subtype_id || null, store_id || user.store_id || null,
       client_name || user.name, client_email || user.email,
       client_phone || user.phone, client_cpf || user.cpf,
@@ -299,6 +318,9 @@ const updateStatus = async (req, res, next) => {
     const io = req.app.get('io');
     if (io) io.emit('ticket_updated', { ticketId: id });
 
+    // Notifica o CRM sobre a alteração de status
+    notifyCrmOfStatusChange(id, status_id || oldStatusId, note || 'Status atualizado no HelmDesk');
+
     res.json({ message: 'Status atualizado', ticket_id: id });
   } catch (err) {
     next(err);
@@ -316,6 +338,13 @@ const updateTicket = async (req, res, next) => {
     }
 
     const fields = req.body;
+
+    if (fields.priority !== undefined && !VALID_PRIORITIES.includes(fields.priority)) {
+      return res.status(400).json({ error: `Prioridade inválida. Valores permitidos: ${VALID_PRIORITIES.join(', ')}` });
+    }
+    if (fields.title !== undefined) fields.title = sanitizeText(fields.title);
+    if (fields.description !== undefined) fields.description = sanitizeText(fields.description);
+
     const updateable = [
       'title', 'description', 'priority', 'brand_id',
       'issue_type_id', 'issue_subtype_id', 'assigned_to'
@@ -356,6 +385,13 @@ const addProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { product_id, product_name, brand_name, serial_number, invoice_number, purchase_date, notes } = req.body;
+
+    const { rows: countRows } = await pool.query(
+      'SELECT COUNT(*) FROM ticket_products WHERE ticket_id = $1', [id]
+    );
+    if (parseInt(countRows[0].count) >= 3) {
+      return res.status(400).json({ error: 'Um ticket pode ter no máximo 3 produtos vinculados' });
+    }
 
     const { rows } = await pool.query(`
       INSERT INTO ticket_products (ticket_id, product_id, product_name, brand_name, serial_number, invoice_number, purchase_date, notes)
@@ -679,6 +715,8 @@ async function _finalizeApproval({ pool, id, solutionId, sol, user, ticketNumber
       'UPDATE tickets SET status_id = $1, updated_at = NOW() WHERE id = $2',
       [newStatusId, id]
     );
+    // Notifica o CRM sobre a alteração de status via aprovação de solução
+    notifyCrmOfStatusChange(id, newStatusId, `Solução de ${typeLabel} aprovada — execução iniciada`);
   }
 
   // Criar tarefa de execução para atendente/gestor do departamento
@@ -745,6 +783,38 @@ const registerGoal = async (userId, ticketId, taskId, actionType, historyId = nu
 
 const checkSolutionCost = async (ticketId, userId) => {
   // placeholder for auto-task on solution proposed
+};
+
+/**
+ * Função helper para notificar o CRM via webhook sobre mudanças de status no HelmDesk
+ */
+const notifyCrmOfStatusChange = async (ticketId, statusId, note) => {
+  try {
+    const crmWebhookUrl = 'http://localhost:3003/api/helmdesk-bridge/webhook/ticket-status';
+    console.log(`[CRM Webhook] Notificando CRM sobre alteração no ticket ${ticketId} para o status ${statusId}...`);
+    
+    // Usando API fetch nativa do Node 18+
+    const response = await fetch(crmWebhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        ticket_id: ticketId,
+        status_id: statusId,
+        note: note || 'Alteração realizada no HelmDesk'
+      })
+    });
+    
+    if (response.ok) {
+      console.log(`[CRM Webhook] CRM notificado com sucesso!`);
+    } else {
+      const text = await response.text();
+      console.warn(`[CRM Webhook] Falha ao notificar CRM. Status: ${response.status}. Detalhes: ${text}`);
+    }
+  } catch (err) {
+    console.error('[CRM Webhook] Erro ao enviar webhook para o CRM:', err.message);
+  }
 };
 
 module.exports = {

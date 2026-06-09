@@ -135,6 +135,27 @@ socketService.init(io);
 // ============================================================
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err.stack);
+
+  // UUID inválido (código PostgreSQL 22P02)
+  if (err.code === '22P02') {
+    return res.status(400).json({ error: 'Identificador inválido ou formato de ID incorreto.' });
+  }
+
+  // Offset/limit negativos (códigos 2201W e 2201X do PostgreSQL)
+  if (err.code === '2201W' || err.code === '2201X' ||
+      (err.message && (err.message.includes('OFFSET') || err.message.includes('LIMIT')))) {
+    return res.status(400).json({ error: 'Parâmetros de paginação inválidos.' });
+  }
+
+  // Erro genérico de banco — não expor detalhes em produção
+  if (err.code && err.code.match(/^[0-9A-Z]{5}$/)) {
+    const isdev = process.env.NODE_ENV === 'development';
+    return res.status(500).json({
+      error: 'Erro interno do servidor.',
+      ...(isdev && { detail: err.message })
+    });
+  }
+
   res.status(err.status || 500).json({
     error: err.message || 'Erro interno do servidor',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
