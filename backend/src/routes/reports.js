@@ -34,10 +34,11 @@ router.get('/tickets', authenticate, authorize('gestor','diretor'), async (req, 
     `, params);
 
     if (format === 'csv') {
-      const CSV_HEADERS = 'ticket_number,title,priority,created_at,updated_at,client_name,client_email,status,brand,assigned_to,store,issue_type';
-      const csvRows = rows.map(r => Object.values(r).map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
-      const csv = [CSV_HEADERS, ...csvRows].join('\n');
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      const staticHeaders = ['ticket_number', 'title', 'priority', 'created_at', 'updated_at', 'client_name', 'client_email', 'status', 'brand', 'assigned_to', 'store', 'issue_type'];
+      const headers = (rows.length > 0 ? Object.keys(rows[0]) : staticHeaders).join(',');
+      const csvRows = rows.map(r => Object.values(r).map(v => `"${v ?? ''}"`).join(','));
+      const csv = [headers, ...csvRows].join('\n');
+      res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename=relatorio-tickets.csv');
       return res.send(csv);
     }

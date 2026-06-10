@@ -146,10 +146,11 @@ const register = async (req, res, next) => {
       return res.status(403).json({ error: 'Apenas gestores podem criar usuários' });
     }
 
-    const effectiveRole = role || 'atendente';
-    if (!VALID_ROLES.includes(effectiveRole)) {
+    if (role && !VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: `Perfil inválido. Valores permitidos: ${VALID_ROLES.join(', ')}` });
     }
+
+    const effectiveRole = role || 'atendente';
 
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length) {

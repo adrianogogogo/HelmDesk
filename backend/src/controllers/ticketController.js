@@ -207,7 +207,8 @@ const createTicket = async (req, res, next) => {
 
     if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
 
-    if (!VALID_PRIORITIES.includes(priority)) {
+    const VALID_PRIORITIES = ['low', 'normal', 'high', 'critical'];
+    if (priority && !VALID_PRIORITIES.includes(priority)) {
       return res.status(400).json({ error: `Prioridade inválida. Valores permitidos: ${VALID_PRIORITIES.join(', ')}` });
     }
 
