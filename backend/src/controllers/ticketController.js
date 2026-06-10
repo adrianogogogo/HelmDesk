@@ -1,5 +1,4 @@
 const pool = require('../config/database');
-const { v4: uuidv4 } = require('uuid');
 
 const VALID_PRIORITIES = ['low', 'normal', 'high', 'critical'];
 
@@ -782,8 +781,8 @@ const registerGoal = async (userId, ticketId, taskId, actionType, historyId = nu
   `, [userId, ticketId, taskId, historyId, actionType, now.getMonth() + 1, now.getFullYear()]);
 };
 
-const checkSolutionCost = async (ticketId, userId) => {
-  // placeholder for auto-task on solution proposed
+const checkSolutionCost = async (_ticketId, _userId) => {
+  // placeholder para uso futuro
 };
 
 /**
@@ -791,10 +790,10 @@ const checkSolutionCost = async (ticketId, userId) => {
  */
 const notifyCrmOfStatusChange = async (ticketId, statusId, note) => {
   try {
-    const crmWebhookUrl = 'http://localhost:3003/api/helmdesk-bridge/webhook/ticket-status';
+    const crmWebhookUrl = process.env.CRM_WEBHOOK_URL;
+    if (!crmWebhookUrl) return; // CRM não configurado — silencioso
+
     console.log(`[CRM Webhook] Notificando CRM sobre alteração no ticket ${ticketId} para o status ${statusId}...`);
-    
-    // Usando API fetch nativa do Node 18+
     const response = await fetch(crmWebhookUrl, {
       method: 'POST',
       headers: {

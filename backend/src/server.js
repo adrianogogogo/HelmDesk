@@ -48,11 +48,11 @@ app.use(morgan('dev'));
 // Static uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Rate limiting
+// Rate limiting — standardHeaders:false para não expor X-RateLimit-Remaining ao cliente
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
-  standardHeaders: true,
+  standardHeaders: false,
   legacyHeaders: false,
   message: { error: 'Muitas requisições. Tente novamente em alguns minutos.' }
 });
@@ -60,12 +60,12 @@ app.use('/api/', apiLimiter);
 
 // Rate limit mais rigoroso para autenticação (evitar brute-force)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 15, // 15 tentativas por IP (em combinação com bloqueio por e-mail no controller)
-  standardHeaders: true,
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: false,
   legacyHeaders: false,
   message: { error: 'Muitas tentativas de login. Aguarde 15 minutos.' },
-  skipSuccessfulRequests: true, // não conta requisições bem-sucedidas
+  skipSuccessfulRequests: true,
 });
 
 // Middleware de sanitização básica — remove campos com valores suspeitos
@@ -122,6 +122,13 @@ app.get('/api/health', (req, res) => {
     service: 'RelmDesk API v1',
     timestamp: new Date().toISOString()
   });
+});
+
+// ============================================================
+// 404 — rotas /api/* não encontradas (antes do error handler)
+// ============================================================
+app.use('/api', (_, res) => {
+  res.status(404).json({ error: 'Rota não encontrada.' });
 });
 
 // ============================================================

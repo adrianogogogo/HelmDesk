@@ -4,7 +4,7 @@ const pool = require('../config/database');
 const search = async (req, res, next) => {
   try {
     const { q, limit = 50 } = req.query;
-    if (!q || q.length < 2) return res.json({ results: [] });
+    if (!q || q.length < 2) return res.json({ results: [], message: 'Digite ao menos 2 caracteres para buscar.' });
 
     const user = req.user;
     const internalRoles = ['atendente', 'gestor', 'diretor'];
@@ -62,7 +62,7 @@ const search = async (req, res, next) => {
 const suggest = async (req, res, next) => {
   try {
     const { q } = req.query;
-    if (!q || q.length < 2) return res.json({ suggestions: [] });
+    if (!q || q.length < 2) return res.json({ suggestions: [], message: 'Digite ao menos 2 caracteres para buscar.' });
 
     const user = req.user;
     const internalRoles = ['atendente', 'gestor', 'diretor'];
