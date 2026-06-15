@@ -24,7 +24,7 @@ const Sidebar = () => {
   const { unreadTotal: chatUnread } = useSelector(s => s.chat);
 
   const menuItems = [
-    { label: 'Dashboard',      icon: <Dashboard />,         path: '/dashboard',    roles: ['atendente','gestor','diretor','loja','cliente'] },
+    { label: 'Dashboard',      icon: <Dashboard />,         path: '/dashboard',    roles: ['atendente','gestor','diretor'] },
     { label: 'Tickets',        icon: <ConfirmationNumber />, path: '/tickets',      roles: ['atendente','gestor','diretor','loja','cliente'] },
     { label: 'Tarefas',        icon: <Assignment />,         path: '/tarefas',      roles: ['atendente','gestor','diretor'] },
     { label: 'Chat',           icon: <Forum />,              path: '/chat',         roles: ['atendente','gestor','diretor'], badge: chatUnread },

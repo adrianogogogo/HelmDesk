@@ -36,6 +36,29 @@ router.patch('/:id', authenticate, authorize('gestor', 'diretor'), async (req, r
       return res.status(400).json({ error: `Perfil inválido. Valores permitidos: ${VALID_ROLES.join(', ')}` });
     }
 
+    // Carrega o usuário alvo para validar regras de privilégio
+    const { rows: targetRows } = await pool.query('SELECT id, role FROM users WHERE id = $1', [id]);
+    if (!targetRows.length) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    const targetRole = targetRows[0].role;
+    const isSelf = String(req.user.id) === String(id);
+
+    // Gestor não pode alterar contas de diretor (evita sequestro de conta de super-admin)
+    if (req.user.role === 'gestor' && targetRole === 'diretor') {
+      return res.status(403).json({ error: 'Gestores não podem alterar contas de diretor' });
+    }
+
+    // Apenas diretor pode alterar o perfil (role) de um usuário
+    if (role !== undefined && role !== targetRole && req.user.role !== 'diretor') {
+      return res.status(403).json({ error: 'Apenas diretores podem alterar o perfil de um usuário' });
+    }
+
+    // Ninguém pode alterar o próprio perfil (evita auto-elevação)
+    if (role !== undefined && role !== targetRole && isSelf) {
+      return res.status(403).json({ error: 'Você não pode alterar o seu próprio perfil' });
+    }
+
     if (password) {
       // Se uma nova senha foi fornecida, atualiza com hash
       const password_hash = await bcrypt.hash(password, 10);

@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const { authenticate, authorize } = require('../middlewares/auth');
 
 // List clients (internal only) — suporta ?search=
-router.get('/', authenticate, async (req, res, next) => {
+router.get('/', authenticate, authorize('atendente', 'gestor', 'diretor'), async (req, res, next) => {
   try {
     const { search } = req.query;
     let where = `WHERE role IN ('cliente','loja') AND is_anonymized = FALSE`;

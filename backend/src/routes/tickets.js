@@ -26,12 +26,12 @@ router.get('/:id', ticketAccess, getTicketById);
 router.patch('/:id', ticketAccess, updateTicket);
 router.patch('/:id/status', ticketAccess, internalOnly, updateStatus);
 
-// Products
-router.post('/:id/products', ticketAccess, addProduct);
-router.delete('/:id/products/:productId', ticketAccess, removeProduct);
+// Products (escrita restrita a usuários internos)
+router.post('/:id/products', ticketAccess, internalOnly, addProduct);
+router.delete('/:id/products/:productId', ticketAccess, internalOnly, removeProduct);
 
-// Solutions
-router.post('/:id/solutions', ticketAccess, addSolution);
+// Solutions (proposta de solução restrita a usuários internos)
+router.post('/:id/solutions', ticketAccess, internalOnly, addSolution);
 router.patch('/:id/solutions/:solutionId/approve', ticketAccess, authorize('gestor', 'diretor'), approveSolution);
 
 // LGPD
@@ -65,8 +65,8 @@ router.post('/:id/attachments', ticketAccess, upload.array('files', 10), async (
   }
 });
 
-// Blocks
-router.post('/:id/blocks', ticketAccess, async (req, res, next) => {
+// Blocks (escrita restrita a usuários internos)
+router.post('/:id/blocks', ticketAccess, internalOnly, async (req, res, next) => {
   try {
     const { id } = req.params;
     const { block_type_id, content } = req.body;
@@ -78,7 +78,7 @@ router.post('/:id/blocks', ticketAccess, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/blocks/:blockId', ticketAccess, async (req, res, next) => {
+router.patch('/:id/blocks/:blockId', ticketAccess, internalOnly, async (req, res, next) => {
   try {
     const { id, blockId } = req.params;
     const { content } = req.body;
@@ -94,8 +94,14 @@ router.patch('/:id/blocks/:blockId', ticketAccess, async (req, res, next) => {
 router.post('/:id/notes', ticketAccess, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { note, is_internal = true } = req.body;
+    const { note } = req.body;
     if (!note?.trim()) return res.status(400).json({ error: 'Nota é obrigatória' });
+    // is_internal é derivado do perfil: cliente/loja NUNCA criam notas internas.
+    // Usuários internos podem optar por nota pública passando is_internal: false.
+    const internalRoles = ['atendente', 'gestor', 'diretor'];
+    const is_internal = internalRoles.includes(req.user.role)
+      ? req.body.is_internal !== false
+      : false;
     const { rows } = await pool.query(`
       INSERT INTO ticket_history (ticket_id, user_id, action_type, note, is_internal)
       VALUES ($1, $2, 'note', $3, $4) RETURNING *
