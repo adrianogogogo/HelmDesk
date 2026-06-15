@@ -28,6 +28,11 @@ const OpenTicketPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const semNota = form.products.findIndex(p => !p.invoice_number?.trim());
+    if (semNota !== -1) {
+      toast.error(`Informe o número da nota fiscal do Produto ${semNota + 1}.`);
+      return;
+    }
     setLoading(true);
     try {
       const { data } = await publicAPI.createTicket(form);
@@ -174,7 +179,7 @@ const OpenTicketPage = () => {
                       onChange={e => { const p = [...form.products]; p[idx].brand_name = e.target.value; setForm(f => ({ ...f, products: p })); }} /></Grid>
                     <Grid item xs={6}><TextField fullWidth size="small" label="Número de série" value={prod.serial_number}
                       onChange={e => { const p = [...form.products]; p[idx].serial_number = e.target.value; setForm(f => ({ ...f, products: p })); }} /></Grid>
-                    <Grid item xs={6}><TextField fullWidth size="small" label="Nota fiscal" value={prod.invoice_number}
+                    <Grid item xs={6}><TextField fullWidth required size="small" label="Nota fiscal *" value={prod.invoice_number}
                       onChange={e => { const p = [...form.products]; p[idx].invoice_number = e.target.value; setForm(f => ({ ...f, products: p })); }} /></Grid>
                     <Grid item xs={6}><TextField fullWidth size="small" label="Data de compra" type="date" value={prod.purchase_date}
                       InputLabelProps={{ shrink: true }}
@@ -184,7 +189,7 @@ const OpenTicketPage = () => {
               ))}
               <Button size="small" startIcon={<Add />} variant="outlined"
                 onClick={() => setForm(p => ({ ...p, products: [...p.products, { product_name: '', brand_name: '', serial_number: '', invoice_number: '', purchase_date: '' }] }))}>
-                + Adicionar produto
+                Adicionar produto
               </Button>
 
               <Box sx={{ mt: 3 }}>
