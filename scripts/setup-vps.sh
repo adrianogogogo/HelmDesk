@@ -66,7 +66,8 @@ echo "✅ PostgreSQL: $(psql --version | head -1)"
 # ---- Banco de dados ----
 echo ""
 echo "🐘 Configurando banco de dados..."
-sudo -u postgres psql -c "CREATE USER relmdesk_user WITH PASSWORD 'relmdesk_pass_2024';" \
+: "${DB_PASSWORD:?Defina a variável de ambiente DB_PASSWORD antes de executar (ex.: export DB_PASSWORD=...)}"
+sudo -u postgres psql -c "CREATE USER relmdesk_user WITH PASSWORD '${DB_PASSWORD}';" \
   2>/dev/null || echo "  ⚠️  Usuário já existe — ok"
 sudo -u postgres psql -c "CREATE DATABASE relmdesk OWNER relmdesk_user;" \
   2>/dev/null || echo "  ⚠️  Banco já existe — ok"
@@ -123,16 +124,18 @@ fi
 # ---- .env backend ----
 if [ ! -f "$APP_DIR/backend/.env" ]; then
   echo ""
-  echo "📝 Criando backend/.env com valores padrão..."
-  cat > "$APP_DIR/backend/.env" << 'ENVEOF'
+  echo "📝 Criando backend/.env..."
+  : "${DB_PASSWORD:?Defina DB_PASSWORD no ambiente antes de executar}"
+  : "${JWT_SECRET:=$(openssl rand -hex 32)}"
+  cat > "$APP_DIR/backend/.env" << ENVEOF
 NODE_ENV=production
 PORT=5000
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=relmdesk
 DB_USER=relmdesk_user
-DB_PASSWORD=relmdesk_pass_2024
-JWT_SECRET=relmdesk_jwt_secret_super_secure_2024_bikes_relm
+DB_PASSWORD=${DB_PASSWORD}
+JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRES_IN=7d
 FRONTEND_URL=http://177.153.39.134:3000
 APP_URL=http://177.153.39.134:3000

@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'relmdesk_jwt_secret_super_secure_2024_bikes_relm';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // ─── Controle de tentativas de login por e-mail (em memória) ────────────────
 // Chave: email, Valor: { count, lockedUntil }

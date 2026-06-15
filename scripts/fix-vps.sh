@@ -61,7 +61,8 @@ else
   echo "  ❌ Banco 'relmdesk' inacessível: $DB_OK"
   echo ""
   echo "  Tentando recriar usuário e banco..."
-  sudo -u postgres psql -c "CREATE USER relmdesk_user WITH PASSWORD 'relmdesk_pass_2024';" 2>/dev/null || true
+  : "${DB_PASSWORD:?Defina a variável de ambiente DB_PASSWORD antes de executar}"
+  sudo -u postgres psql -c "CREATE USER relmdesk_user WITH PASSWORD '${DB_PASSWORD}';" 2>/dev/null || true
   sudo -u postgres psql -c "CREATE DATABASE relmdesk OWNER relmdesk_user;" 2>/dev/null || true
   sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE relmdesk TO relmdesk_user;" 2>/dev/null || true
   sudo -u postgres psql -d relmdesk -c "GRANT ALL ON SCHEMA public TO relmdesk_user;" 2>/dev/null || true
@@ -133,15 +134,17 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # Backend .env
 if [ ! -f "$APP_DIR/backend/.env" ]; then
   echo "  ⚠️  backend/.env não encontrado — criando..."
-  cat > "$APP_DIR/backend/.env" << 'ENVEOF'
+  : "${DB_PASSWORD:?Defina DB_PASSWORD no ambiente antes de executar}"
+  : "${JWT_SECRET:=$(openssl rand -hex 32)}"
+  cat > "$APP_DIR/backend/.env" << ENVEOF
 NODE_ENV=production
 PORT=5000
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=relmdesk
 DB_USER=relmdesk_user
-DB_PASSWORD=relmdesk_pass_2024
-JWT_SECRET=relmdesk_jwt_secret_super_secure_2024_bikes_relm
+DB_PASSWORD=${DB_PASSWORD}
+JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRES_IN=7d
 FRONTEND_URL=http://177.153.39.134:3000
 APP_URL=http://177.153.39.134:3000

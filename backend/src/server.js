@@ -1,4 +1,13 @@
 require('dotenv').config();
+
+// Falha-rápida: segredos obrigatórios devem vir do ambiente (backend/.env), nunca hardcoded.
+const REQUIRED_SECRETS = ['JWT_SECRET', 'DB_PASSWORD'];
+const missingSecrets = REQUIRED_SECRETS.filter((k) => !process.env[k]);
+if (missingSecrets.length) {
+  console.error(`❌ Variáveis obrigatórias ausentes: ${missingSecrets.join(', ')}. Configure-as em backend/.env.`);
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

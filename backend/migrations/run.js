@@ -8,7 +8,7 @@ const pool = new Pool({
   port: parseInt(process.env.DB_PORT) || 5432,
   database: process.env.DB_NAME || 'relmdesk',
   user: process.env.DB_USER || 'relmdesk_user',
-  password: process.env.DB_PASSWORD || 'relmdesk_pass_2024',
+  password: process.env.DB_PASSWORD,
 });
 
 async function runMigrations() {

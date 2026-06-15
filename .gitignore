@@ -14,3 +14,6 @@ frontend/core
 *.core
 # Lock files in subdirs (optional)
 # frontend/package-lock.json
+# Scripts operacionais com credenciais — NÃO versionar
+scripts/ssh_check.py
+scripts/vps_deploy.py

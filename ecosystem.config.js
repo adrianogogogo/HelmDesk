@@ -4,20 +4,9 @@ module.exports = {
       name: 'relmdesk-backend',
       cwd: '/home/ubuntu/HelmDesk/backend',
       script: 'src/server.js',
-      env: {
-        NODE_ENV: 'production',
-        PORT: 5000,
-        DB_HOST: 'localhost',
-        DB_PORT: 5432,
-        DB_NAME: 'relmdesk',
-        DB_USER: 'relmdesk_user',
-        DB_PASSWORD: 'relmdesk_pass_2024',
-        JWT_SECRET: 'relmdesk_jwt_secret_super_secure_2024_bikes_relm',
-        JWT_EXPIRES_IN: '7d',
-        FRONTEND_URL: 'http://177.153.39.134:3000',
-        APP_URL: 'http://177.153.39.134:3000',
-        MAX_FILE_SIZE: 15728640,
-      },
+      // As variáveis de ambiente (incluindo SEGREDOS: JWT_SECRET, DB_PASSWORD) são
+      // carregadas de backend/.env via dotenv em src/server.js.
+      // NÃO declarar segredos aqui — este arquivo é versionado no Git.
       watch: false,
       max_memory_restart: '512M',
       log_file: '/var/log/relmdesk/backend.log',

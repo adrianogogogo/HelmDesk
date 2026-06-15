@@ -68,30 +68,14 @@ echo ""
 echo "📦 Instalando dependências do backend..."
 npm install --production 2>&1 | tail -5
 
-# Verificar .env
+# Verificar .env — o deploy NÃO provisiona segredos. Crie o .env manualmente
+# (a partir de backend/.env.example) com os valores reais antes do primeiro deploy.
 if [ ! -f "$APP_DIR/backend/.env" ]; then
   echo ""
-  echo "⚠️  Arquivo backend/.env não encontrado — criando com valores padrão..."
-  cat > "$APP_DIR/backend/.env" << 'ENVEOF'
-NODE_ENV=production
-PORT=5000
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=relmdesk
-DB_USER=relmdesk_user
-DB_PASSWORD=relmdesk_pass_2024
-JWT_SECRET=relmdesk_jwt_secret_super_secure_2024_bikes_relm
-JWT_EXPIRES_IN=7d
-FRONTEND_URL=http://177.153.39.134:3000
-APP_URL=http://177.153.39.134:3000
-MAX_FILE_SIZE=15728640
-SMTP_HOST=
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASS=
-SMTP_FROM=
-ENVEOF
-  echo "✅ .env criado — edite com suas credenciais SMTP se necessário"
+  echo "❌ backend/.env não encontrado."
+  echo "   Crie-o a partir de backend/.env.example com os segredos reais e rode novamente."
+  echo "   Ex.: cp backend/.env.example backend/.env && nano backend/.env"
+  exit 1
 fi
 
 echo ""

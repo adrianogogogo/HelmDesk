@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'relmdesk_jwt_secret_super_secure_2024_bikes_relm';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const authenticate = async (req, res, next) => {
   try {
