@@ -71,16 +71,65 @@ router.post('/', authenticate, authorize('gestor','diretor'), async (req, res, n
 });
 
 router.patch('/:id', authenticate, authorize('gestor','diretor'), async (req, res, next) => {
+  const client = await pool.connect();
   try {
-    const { name, cnpj, email, phone, address, city, state, is_active } = req.body;
-    await pool.query(
+    await client.query('BEGIN');
+
+    const { id } = req.params;
+    const { name, cnpj, email, phone, address, city, state, is_active, password } = req.body;
+
+    await client.query(
       `UPDATE stores SET name=COALESCE($1,name),cnpj=COALESCE($2,cnpj),email=COALESCE($3,email),
        phone=COALESCE($4,phone),address=COALESCE($5,address),city=COALESCE($6,city),
        state=COALESCE($7,state),is_active=COALESCE($8,is_active),updated_at=NOW() WHERE id=$9`,
-      [name, cnpj, email, phone, address, city, state, is_active, req.params.id]
+      [name, cnpj, email, phone, address, city, state, is_active, id]
     );
-    res.json({ message: 'Loja atualizada' });
-  } catch (err) { next(err); }
+
+    // Buscar se existe usuário correspondente (role = 'loja' e store_id = id)
+    const { rows: userRows } = await client.query(
+      "SELECT id FROM users WHERE store_id = $1 AND role = 'loja' LIMIT 1",
+      [id]
+    );
+
+    if (userRows.length > 0) {
+      const userId = userRows[0].id;
+      let passwordQuery = '';
+      let queryParams = [name, email, is_active, userId];
+      let paramCount = 5;
+
+      if (password) {
+        const hash = await bcrypt.hash(password, 10);
+        passwordQuery = `, password_hash = $${paramCount}`;
+        queryParams.push(hash);
+        paramCount++;
+      }
+
+      await client.query(`
+        UPDATE users SET
+          name = COALESCE($1, name),
+          email = COALESCE($2, email),
+          is_active = COALESCE($3, is_active),
+          updated_at = NOW()
+          ${passwordQuery}
+        WHERE id = $4
+      `, queryParams);
+    } else if (email && password) {
+      // Se não existia usuário mas o e-mail e a senha foram enviados, cria um
+      const hash = await bcrypt.hash(password, 10);
+      await client.query(`
+        INSERT INTO users (name, email, password_hash, role, store_id, department_id, is_active)
+        VALUES ($1, $2, $3, 'loja', $4, 1, TRUE)
+      `, [name || 'Acesso Loja', email, hash, id]);
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'Loja e usuário de acesso atualizados com sucesso' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
 });
 
 module.exports = router;

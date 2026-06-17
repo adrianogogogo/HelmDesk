@@ -9,7 +9,7 @@ import { Add, Edit, Store, Search, ContentCopy, CheckCircle } from '@mui/icons-m
 import { storeAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
-const emptyForm = { name: '', cnpj: '', email: '', phone: '', address: '', city: '', state: '', is_active: true };
+const emptyForm = { name: '', cnpj: '', email: '', phone: '', address: '', city: '', state: '', password: '', is_active: true };
 
 const StoresPage = () => {
   const [stores, setStores] = useState([]);
@@ -32,7 +32,7 @@ const StoresPage = () => {
   );
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setError(''); setDialog(true); };
-  const openEdit = (s) => { setEditing(s); setForm({ name: s.name, cnpj: s.cnpj || '', email: s.email || '', phone: s.phone || '', address: s.address || '', city: s.city || '', state: s.state || '', is_active: s.is_active }); setError(''); setDialog(true); };
+  const openEdit = (s) => { setEditing(s); setForm({ name: s.name, cnpj: s.cnpj || '', email: s.email || '', phone: s.phone || '', address: s.address || '', city: s.city || '', state: s.state || '', password: '', is_active: s.is_active }); setError(''); setDialog(true); };
 
   const handleSave = async () => {
     setError('');
@@ -203,6 +203,16 @@ const StoresPage = () => {
             <Grid item xs={6}><TextField fullWidth label="CNPJ" value={form.cnpj} onChange={e => setForm(p => ({ ...p, cnpj: e.target.value }))} size="small" /></Grid>
             <Grid item xs={6}><TextField fullWidth label="Telefone" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} size="small" /></Grid>
             <Grid item xs={12}><TextField fullWidth label="E-mail" type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} size="small" /></Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label={editing ? "Nova senha do usuário de acesso (opcional)" : "Senha do usuário de acesso (opcional)"}
+                type="password"
+                value={form.password}
+                onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                size="small"
+              />
+            </Grid>
             <Grid item xs={12}><TextField fullWidth label="Endereço" value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} size="small" /></Grid>
             <Grid item xs={8}><TextField fullWidth label="Cidade" value={form.city} onChange={e => setForm(p => ({ ...p, city: e.target.value }))} size="small" /></Grid>
             <Grid item xs={4}><TextField fullWidth label="UF" value={form.state} onChange={e => setForm(p => ({ ...p, state: e.target.value }))} size="small" inputProps={{ maxLength: 2 }} /></Grid>
