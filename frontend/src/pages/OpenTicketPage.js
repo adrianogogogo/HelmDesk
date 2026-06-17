@@ -28,6 +28,10 @@ const OpenTicketPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if ((form.description || '').trim().length < 50) {
+      toast.error('A descrição detalhada é obrigatória e deve ter no mínimo 50 caracteres.');
+      return;
+    }
     const semNota = form.products.findIndex(p => !p.invoice_number?.trim());
     if (semNota !== -1) {
       toast.error(`Informe o número da nota fiscal do Produto ${semNota + 1}.`);
@@ -135,8 +139,11 @@ const OpenTicketPage = () => {
                   </Grid>
                 )}
                 <Grid item xs={12}>
-                  <TextField fullWidth multiline rows={4} size="small" label="Descrição detalhada"
-                    value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+                  <TextField fullWidth required multiline rows={4} size="small" label="Descrição detalhada *"
+                    value={form.description}
+                    onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                    error={form.description.trim().length > 0 && form.description.trim().length < 50}
+                    helperText={`Obrigatório — mínimo de 50 caracteres (${form.description.trim().length}/50)`} />
                 </Grid>
               </Grid>
 

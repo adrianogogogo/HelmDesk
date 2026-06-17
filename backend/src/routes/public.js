@@ -16,6 +16,16 @@ router.post('/tickets', async (req, res, next) => {
       return res.status(400).json({ error: 'Título, nome e e-mail são obrigatórios' });
     }
 
+    // Descrição detalhada obrigatória, mínimo 50 caracteres
+    if (!description || description.trim().length < 50) {
+      return res.status(400).json({ error: 'A descrição detalhada é obrigatória e deve ter no mínimo 50 caracteres' });
+    }
+
+    // Nota fiscal obrigatória em todos os produtos informados
+    if (products.some(p => !p.invoice_number || !String(p.invoice_number).trim())) {
+      return res.status(400).json({ error: 'Informe o número da nota fiscal de todos os produtos' });
+    }
+
     // Create system user placeholder to reference as created_by
     const systemUserId = await getSystemUser();
 
