@@ -25,7 +25,7 @@ const getTickets = async (req, res, next) => {
     let whereConditions = ['t.is_anonymized = FALSE'];
 
     // RBAC visibility
-    const internalRoles = ['atendente', 'gestor', 'diretor'];
+    const internalRoles = ['atendente', 'gestor', 'diretor', 'superadmin'];
     if (!internalRoles.includes(user.role)) {
       if (user.role === 'cliente') {
         params.push(user.id);
@@ -332,7 +332,7 @@ const updateTicket = async (req, res, next) => {
   try {
     const { id } = req.params;
     const user = req.user;
-    const allowedRoles = ['atendente', 'gestor', 'diretor'];
+    const allowedRoles = ['atendente', 'gestor', 'diretor', 'superadmin'];
     if (!allowedRoles.includes(user.role)) {
       return res.status(403).json({ error: 'Sem permissão para editar tickets' });
     }
@@ -535,7 +535,7 @@ const approveSolution = async (req, res, next) => {
     const { approved, rejection_reason } = req.body;
     const user = req.user;
 
-    if (!['gestor', 'diretor'].includes(user.role)) {
+    if (!['gestor', 'diretor', 'superadmin'].includes(user.role)) {
       return res.status(403).json({ error: 'Apenas gestores e diretores podem autorizar soluções' });
     }
 
@@ -588,7 +588,7 @@ const approveSolution = async (req, res, next) => {
     // -------------------------------------------------------
 
     // NÍVEL 1: Gestor aprova (primeira etapa)
-    if (sol.authorization_level === 'gestor' && ['gestor', 'diretor'].includes(user.role)) {
+    if (sol.authorization_level === 'gestor' && ['gestor', 'diretor', 'superadmin'].includes(user.role)) {
 
       // Se requer diretor → avança para próximo nível
       if (sol.requires_director && user.role === 'gestor') {
@@ -648,7 +648,7 @@ const approveSolution = async (req, res, next) => {
 
     // NÍVEL 2: Diretor confirma
     if (sol.authorization_level === 'diretor') {
-      if (user.role !== 'diretor') {
+      if (!['diretor', 'superadmin'].includes(user.role)) {
         return res.status(403).json({ error: 'Esta solução requer confirmação do diretor' });
       }
 
@@ -748,7 +748,7 @@ async function _finalizeApproval({ pool, id, solutionId, sol, user, ticketNumber
 const anonymizeTicket = async (req, res, next) => {
   try {
     const { id } = req.params;
-    if (!['gestor', 'diretor'].includes(req.user.role)) {
+    if (!['gestor', 'diretor', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     await pool.query(`

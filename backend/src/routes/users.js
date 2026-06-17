@@ -24,7 +24,7 @@ router.get('/', authenticate, authorize('atendente', 'gestor', 'diretor'), async
 // POST /api/users — criar usuário (gestor/diretor); delega ao authController.register
 router.post('/', authenticate, authorize('gestor', 'diretor'), register);
 
-const VALID_ROLES = ['cliente', 'loja', 'atendente', 'gestor', 'diretor'];
+const VALID_ROLES = ['cliente', 'loja', 'atendente', 'gestor', 'diretor', 'superadmin'];
 
 // PATCH /api/users/:id
 router.patch('/:id', authenticate, authorize('gestor', 'diretor'), async (req, res, next) => {
@@ -44,14 +44,24 @@ router.patch('/:id', authenticate, authorize('gestor', 'diretor'), async (req, r
     const targetRole = targetRows[0].role;
     const isSelf = String(req.user.id) === String(id);
 
+    // Proteção de contas de superadmin: somente um superadmin altera contas de superadmin
+    if (targetRole === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Apenas um superadmin pode alterar contas de superadmin' });
+    }
+
     // Gestor não pode alterar contas de diretor (evita sequestro de conta de super-admin)
     if (req.user.role === 'gestor' && targetRole === 'diretor') {
       return res.status(403).json({ error: 'Gestores não podem alterar contas de diretor' });
     }
 
-    // Apenas diretor pode alterar o perfil (role) de um usuário
-    if (role !== undefined && role !== targetRole && req.user.role !== 'diretor') {
-      return res.status(403).json({ error: 'Apenas diretores podem alterar o perfil de um usuário' });
+    // Somente um superadmin pode conceder o perfil de superadmin a outro usuário
+    if (role === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Apenas um superadmin pode conceder o status de superadmin' });
+    }
+
+    // Alterar o perfil (role) de um usuário: apenas diretor ou superadmin
+    if (role !== undefined && role !== targetRole && !['diretor', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Apenas diretores ou superadmins podem alterar o perfil de um usuário' });
     }
 
     // Ninguém pode alterar o próprio perfil (evita auto-elevação)
@@ -86,20 +96,57 @@ router.patch('/:id', authenticate, authorize('gestor', 'diretor'), async (req, r
   } catch (err) { next(err); }
 });
 
-// DELETE /api/users/:id (LGPD anonymize)
-router.delete('/:id', authenticate, authorize('diretor'), async (req, res, next) => {
+// DELETE /api/users/:id — exclusão inteligente (diretor ou superadmin)
+// Hard delete se não houver vínculos; caso contrário anonimiza (LGPD), preservando histórico.
+router.delete('/:id', authenticate, authorize('diretor', 'superadmin'), async (req, res, next) => {
   try {
     const { id } = req.params;
-    await pool.query(`
-      UPDATE users SET
-        name = 'ANONIMIZADO', email = uuid_generate_v4() || '@anon.com',
-        password_hash = '', phone = NULL, cpf = NULL,
-        is_active = FALSE, is_anonymized = TRUE, anonymized_at = NOW()
-      WHERE id = $1
-    `, [id]);
-    await pool.query(`INSERT INTO audit_logs (user_id, action, entity_type, entity_id) VALUES ($1,'lgpd_anonymize','user',$2)`,
-      [req.user.id, id]);
-    res.json({ message: 'Usuário anonimizado (LGPD)' });
+
+    if (String(req.user.id) === String(id)) {
+      return res.status(403).json({ error: 'Você não pode excluir a sua própria conta' });
+    }
+
+    const { rows: targetRows } = await pool.query('SELECT id, role FROM users WHERE id = $1', [id]);
+    if (!targetRows.length) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    // Somente um superadmin pode excluir outro superadmin
+    if (targetRows[0].role === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Apenas um superadmin pode excluir contas de superadmin' });
+    }
+
+    // Tenta exclusão definitiva; se houver vínculos (FK), anonimiza.
+    try {
+      const del = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+      if (!del.rowCount) return res.status(404).json({ error: 'Usuário não encontrado' });
+      try {
+        await pool.query(
+          `INSERT INTO audit_logs (user_id, action, entity_type, entity_id) VALUES ($1,'delete','user',$2)`,
+          [req.user.id, id]
+        );
+      } catch (e) { /* auditoria não-crítica */ }
+      return res.json({ message: 'Usuário excluído definitivamente', mode: 'deleted' });
+    } catch (err) {
+      if (err.code !== '23503') throw err; // só trata violação de FK
+      // Possui vínculos (tickets, histórico, etc.) → anonimiza para cumprir LGPD
+      await pool.query(`
+        UPDATE users SET
+          name = 'ANONIMIZADO', email = uuid_generate_v4() || '@anon.com',
+          password_hash = '', phone = NULL, cpf = NULL,
+          is_active = FALSE, is_anonymized = TRUE, anonymized_at = NOW()
+        WHERE id = $1
+      `, [id]);
+      try {
+        await pool.query(
+          `INSERT INTO audit_logs (user_id, action, entity_type, entity_id) VALUES ($1,'lgpd_anonymize','user',$2)`,
+          [req.user.id, id]
+        );
+      } catch (e) { /* auditoria não-crítica */ }
+      return res.json({
+        message: 'Usuário possui vínculos e foi anonimizado (LGPD), preservando o histórico',
+        mode: 'anonymized',
+      });
+    }
   } catch (err) { next(err); }
 });
 

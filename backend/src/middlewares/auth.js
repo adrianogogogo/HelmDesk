@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
+const { INTERNAL_ROLES, isSuperadmin } = require('../config/roles');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -38,6 +39,9 @@ const authorize = (...roles) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Não autenticado' });
     }
+    if (isSuperadmin(req.user.role)) {
+      return next(); // superadmin tem acesso total a toda a plataforma
+    }
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         error: 'Acesso não permitido',
@@ -51,7 +55,7 @@ const authorize = (...roles) => {
 
 // Somente usuários internos (não cliente/loja)
 const internalOnly = (req, res, next) => {
-  const internalRoles = ['atendente', 'gestor', 'diretor'];
+  const internalRoles = INTERNAL_ROLES;
   if (!req.user || !internalRoles.includes(req.user.role)) {
     return res.status(403).json({ error: 'Acesso restrito a usuários internos' });
   }
@@ -63,7 +67,7 @@ const ticketAccess = async (req, res, next) => {
   try {
     const { id } = req.params;
     const user = req.user;
-    const internalRoles = ['atendente', 'gestor', 'diretor'];
+    const internalRoles = INTERNAL_ROLES;
 
     if (internalRoles.includes(user.role)) {
       return next(); // acesso total

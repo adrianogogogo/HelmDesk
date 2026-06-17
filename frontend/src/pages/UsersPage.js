@@ -5,7 +5,8 @@ import {
   TextField, FormControl, InputLabel, Select, MenuItem, Switch, FormControlLabel,
   Tooltip, Avatar, InputAdornment, Alert
 } from '@mui/material';
-import { Add, Edit, Search, PersonOff } from '@mui/icons-material';
+import { Add, Edit, Search, DeleteOutline } from '@mui/icons-material';
+import { useSelector } from 'react-redux';
 import { userAPI, storeAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -13,12 +14,13 @@ const ROLES = [
   { value: 'atendente', label: 'Atendente' },
   { value: 'gestor', label: 'Gestor' },
   { value: 'diretor', label: 'Diretor' },
+  { value: 'superadmin', label: 'Superadmin' },
   { value: 'loja', label: 'Loja' },
   { value: 'cliente', label: 'Cliente' },
 ];
 
 const ROLE_COLORS = {
-  atendente: 'info', gestor: 'warning', diretor: 'error', loja: 'primary', cliente: 'default'
+  atendente: 'info', gestor: 'warning', diretor: 'error', superadmin: 'secondary', loja: 'primary', cliente: 'default'
 };
 
 const emptyForm = { name: '', email: '', password: '', role: 'atendente', phone: '', store_id: '', is_active: true };
@@ -31,6 +33,17 @@ const UsersPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
+  const currentUser = useSelector(s => s.auth.user);
+
+  // Quem pode excluir: apenas diretor/superadmin; nunca a própria conta;
+  // somente superadmin exclui outro superadmin.
+  const canDelete = (u) => {
+    const role = currentUser?.role;
+    if (!['diretor', 'superadmin'].includes(role)) return false;
+    if (String(u.id) === String(currentUser?.id)) return false;
+    if (u.role === 'superadmin' && role !== 'superadmin') return false;
+    return true;
+  };
 
   const load = async () => {
     try {
@@ -78,14 +91,14 @@ const UsersPage = () => {
     }
   };
 
-  const handleAnonymize = async (u) => {
-    if (!window.confirm(`Anonimizar ${u.name}? Esta ação é irreversível (LGPD).`)) return;
+  const handleDelete = async (u) => {
+    if (!window.confirm(`Excluir ${u.name}? Se houver vínculos (chamados/histórico), o usuário será anonimizado (LGPD); caso contrário, removido definitivamente.`)) return;
     try {
-      await userAPI.delete(u.id);
-      toast.success('Usuário anonimizado (LGPD)');
+      const { data } = await userAPI.delete(u.id);
+      toast.success(data?.mode === 'deleted' ? 'Usuário excluído definitivamente' : 'Usuário anonimizado (LGPD)');
       load();
-    } catch {
-      toast.error('Erro ao anonimizar');
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Erro ao excluir usuário');
     }
   };
 
@@ -161,11 +174,13 @@ const UsersPage = () => {
                   <Tooltip title="Editar">
                     <IconButton size="small" onClick={() => openEdit(u)}><Edit fontSize="small" /></IconButton>
                   </Tooltip>
-                  <Tooltip title="Anonimizar (LGPD)">
-                    <IconButton size="small" color="error" onClick={() => handleAnonymize(u)}>
-                      <PersonOff fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {canDelete(u) && (
+                    <Tooltip title="Excluir usuário">
+                      <IconButton size="small" color="error" onClick={() => handleDelete(u)}>
+                        <DeleteOutline fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -187,7 +202,9 @@ const UsersPage = () => {
             <FormControl fullWidth size="small">
               <InputLabel>Perfil *</InputLabel>
               <Select value={form.role} label="Perfil *" onChange={e => setForm(p => ({ ...p, role: e.target.value }))}>
-                {ROLES.map(r => <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>)}
+                {ROLES
+                  .filter(r => r.value !== 'superadmin' || currentUser?.role === 'superadmin' || editing?.role === 'superadmin')
+                  .map(r => <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>)}
               </Select>
             </FormControl>
             {form.role === 'loja' && (

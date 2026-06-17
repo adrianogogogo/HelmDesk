@@ -15,7 +15,7 @@ router.get('/ranking', authenticate, async (req, res, next) => {
              RANK() OVER (ORDER BY COUNT(g.id) DESC) as position
       FROM users u
       LEFT JOIN goals g ON g.user_id = u.id AND g.month = $1 AND g.year = $2
-      WHERE u.role IN ('atendente','gestor','diretor')
+      WHERE u.role IN ('atendente','gestor','diretor','superadmin')
         AND u.is_active = TRUE AND u.department_id = $3
       GROUP BY u.id, u.name, u.role, u.avatar_url
       ORDER BY gols DESC

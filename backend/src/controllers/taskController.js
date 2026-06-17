@@ -6,7 +6,7 @@ const getTasks = async (req, res, next) => {
   try {
     const user = req.user;
     const { ticket_id, assigned_to, status, department_id } = req.query;
-    const internalRoles = ['atendente', 'gestor', 'diretor'];
+    const internalRoles = ['atendente', 'gestor', 'diretor', 'superadmin'];
 
     let where = ['1=1'];
     const params = [];

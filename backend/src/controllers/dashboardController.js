@@ -77,7 +77,7 @@ const getDashboard = async (req, res, next) => {
              RANK() OVER (ORDER BY COUNT(g.id) DESC) as position
       FROM users u
       LEFT JOIN goals g ON g.user_id = u.id AND g.month = $1 AND g.year = $2
-      WHERE u.role IN ('atendente','gestor','diretor') AND u.is_active = TRUE
+      WHERE u.role IN ('atendente','gestor','diretor','superadmin') AND u.is_active = TRUE
       GROUP BY u.id, u.name, u.role
       ORDER BY gols DESC
       LIMIT 10

@@ -98,7 +98,7 @@ router.post('/:id/notes', ticketAccess, async (req, res, next) => {
     if (!note?.trim()) return res.status(400).json({ error: 'Nota é obrigatória' });
     // is_internal é derivado do perfil: cliente/loja NUNCA criam notas internas.
     // Usuários internos podem optar por nota pública passando is_internal: false.
-    const internalRoles = ['atendente', 'gestor', 'diretor'];
+    const internalRoles = ['atendente', 'gestor', 'diretor', 'superadmin'];
     const is_internal = internalRoles.includes(req.user.role)
       ? req.body.is_internal !== false
       : false;

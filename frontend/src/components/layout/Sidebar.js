@@ -24,28 +24,28 @@ const Sidebar = () => {
   const { unreadTotal: chatUnread } = useSelector(s => s.chat);
 
   const menuItems = [
-    { label: 'Dashboard',      icon: <Dashboard />,         path: '/dashboard',    roles: ['atendente','gestor','diretor'] },
-    { label: 'Tickets',        icon: <ConfirmationNumber />, path: '/tickets',      roles: ['atendente','gestor','diretor','loja','cliente'] },
-    { label: 'Tarefas',        icon: <Assignment />,         path: '/tarefas',      roles: ['atendente','gestor','diretor'] },
-    { label: 'Chat',           icon: <Forum />,              path: '/chat',         roles: ['atendente','gestor','diretor'], badge: chatUnread },
-    { label: 'Quadro Visual',  icon: <GridView />,           path: '/quadro',       roles: ['atendente','gestor','diretor'] },
-    { label: 'Busca',          icon: <Search />,             path: '/busca',        roles: ['atendente','gestor','diretor','loja','cliente'] },
+    { label: 'Dashboard',      icon: <Dashboard />,         path: '/dashboard',    roles: ['atendente','gestor','diretor','superadmin'] },
+    { label: 'Tickets',        icon: <ConfirmationNumber />, path: '/tickets',      roles: ['atendente','gestor','diretor','loja','cliente','superadmin'] },
+    { label: 'Tarefas',        icon: <Assignment />,         path: '/tarefas',      roles: ['atendente','gestor','diretor','superadmin'] },
+    { label: 'Chat',           icon: <Forum />,              path: '/chat',         roles: ['atendente','gestor','diretor','superadmin'], badge: chatUnread },
+    { label: 'Quadro Visual',  icon: <GridView />,           path: '/quadro',       roles: ['atendente','gestor','diretor','superadmin'] },
+    { label: 'Busca',          icon: <Search />,             path: '/busca',        roles: ['atendente','gestor','diretor','loja','cliente','superadmin'] },
     { divider: true },
-    { label: 'Produtos',       icon: <Inventory2 />,         path: '/produtos',     roles: ['atendente','gestor','diretor'] },
-    { label: 'Clientes',       icon: <People />,             path: '/clientes',     roles: ['atendente','gestor','diretor'] },
-    { label: 'Lojas',          icon: <Store />,              path: '/lojas',        roles: ['gestor','diretor'] },
-    { label: 'Usuários',       icon: <Group />,              path: '/usuarios',     roles: ['gestor','diretor'] },
+    { label: 'Produtos',       icon: <Inventory2 />,         path: '/produtos',     roles: ['atendente','gestor','diretor','superadmin'] },
+    { label: 'Clientes',       icon: <People />,             path: '/clientes',     roles: ['atendente','gestor','diretor','superadmin'] },
+    { label: 'Lojas',          icon: <Store />,              path: '/lojas',        roles: ['gestor','diretor','superadmin'] },
+    { label: 'Usuários',       icon: <Group />,              path: '/usuarios',     roles: ['gestor','diretor','superadmin'] },
     { divider: true },
-    { label: 'Futebol da Relm',icon: <SportsScore />,        path: '/futebol',      roles: ['atendente','gestor','diretor'] },
-    { label: 'Relatórios',     icon: <BarChart />,           path: '/relatorios',   roles: ['gestor','diretor'] },
-    { label: 'Configurações',  icon: <Settings />,           path: '/configuracoes',roles: ['gestor','diretor'] },
+    { label: 'Futebol da Relm',icon: <SportsScore />,        path: '/futebol',      roles: ['atendente','gestor','diretor','superadmin'] },
+    { label: 'Relatórios',     icon: <BarChart />,           path: '/relatorios',   roles: ['gestor','diretor','superadmin'] },
+    { label: 'Configurações',  icon: <Settings />,           path: '/configuracoes',roles: ['gestor','diretor','superadmin'] },
   ];
 
   const currentWidth = sidebarOpen ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED;
 
   const roleName = {
     cliente: 'Cliente', loja: 'Loja', atendente: 'Atendente',
-    gestor: 'Gestor', diretor: 'Diretor'
+    gestor: 'Gestor', diretor: 'Diretor', superadmin: 'Superadmin'
   };
 
   const filteredMenu = menuItems.filter(item =>

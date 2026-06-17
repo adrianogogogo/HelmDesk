@@ -42,7 +42,7 @@ const ProtectedRoute = ({ children, allowedRoles, redirectTo = '/dashboard' }) =
 // Home sensível ao perfil: internos vão para o Dashboard; loja/cliente para Tickets
 const RoleHome = () => {
   const { user } = useSelector(s => s.auth);
-  const internal = ['atendente', 'gestor', 'diretor'].includes(user?.role);
+  const internal = ['atendente', 'gestor', 'diretor', 'superadmin'].includes(user?.role);
   return <Navigate to={internal ? '/dashboard' : '/tickets'} replace />;
 };
 
@@ -67,7 +67,7 @@ function App() {
         }>
           <Route index element={<RoleHome />} />
           <Route path="dashboard" element={
-            <ProtectedRoute allowedRoles={['atendente','gestor','diretor']} redirectTo="/tickets">
+            <ProtectedRoute allowedRoles={['atendente','gestor','diretor','superadmin']} redirectTo="/tickets">
               <DashboardPage />
             </ProtectedRoute>
           } />
@@ -75,16 +75,16 @@ function App() {
           <Route path="tickets/novo" element={<NewTicketPage />} />
           <Route path="tickets/:id" element={<TicketDetailPage />} />
           <Route path="tarefas" element={<TasksKanbanPage />} />
-          <Route path="chat" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor']}><ChatPage /></ProtectedRoute>} />
+          <Route path="chat" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor','superadmin']}><ChatPage /></ProtectedRoute>} />
           <Route path="produtos" element={<ProductsPage />} />
-          <Route path="clientes" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor']} redirectTo="/tickets"><ClientsPage /></ProtectedRoute>} />
-          <Route path="lojas" element={<ProtectedRoute allowedRoles={['gestor','diretor']}><StoresPage /></ProtectedRoute>} />
-          <Route path="usuarios" element={<ProtectedRoute allowedRoles={['gestor','diretor']}><UsersPage /></ProtectedRoute>} />
-          <Route path="relatorios" element={<ProtectedRoute allowedRoles={['gestor','diretor']}><ReportsPage /></ProtectedRoute>} />
-          <Route path="configuracoes" element={<ProtectedRoute allowedRoles={['gestor','diretor']}><ConfigPage /></ProtectedRoute>} />
+          <Route path="clientes" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor','superadmin']} redirectTo="/tickets"><ClientsPage /></ProtectedRoute>} />
+          <Route path="lojas" element={<ProtectedRoute allowedRoles={['gestor','diretor','superadmin']}><StoresPage /></ProtectedRoute>} />
+          <Route path="usuarios" element={<ProtectedRoute allowedRoles={['gestor','diretor','superadmin']}><UsersPage /></ProtectedRoute>} />
+          <Route path="relatorios" element={<ProtectedRoute allowedRoles={['gestor','diretor','superadmin']}><ReportsPage /></ProtectedRoute>} />
+          <Route path="configuracoes" element={<ProtectedRoute allowedRoles={['gestor','diretor','superadmin']}><ConfigPage /></ProtectedRoute>} />
           <Route path="busca" element={<SearchPage />} />
           <Route path="futebol" element={<GamificationPage />} />
-          <Route path="quadro" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor']}><QuadroVisualPage /></ProtectedRoute>} />
+          <Route path="quadro" element={<ProtectedRoute allowedRoles={['atendente','gestor','diretor','superadmin']}><QuadroVisualPage /></ProtectedRoute>} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

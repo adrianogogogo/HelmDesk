@@ -132,4 +132,35 @@ router.patch('/:id', authenticate, authorize('gestor','diretor'), async (req, re
   }
 });
 
+// DELETE /api/stores/:id — exclusão inteligente (diretor ou superadmin)
+// Hard delete se não houver vínculos; caso contrário desativa a loja e suspende os acessos.
+router.delete('/:id', authenticate, authorize('diretor', 'superadmin'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const { rows: exists } = await pool.query('SELECT id FROM stores WHERE id = $1', [id]);
+    if (!exists.length) {
+      return res.status(404).json({ error: 'Loja não encontrada' });
+    }
+
+    try {
+      const del = await pool.query('DELETE FROM stores WHERE id = $1 RETURNING id', [id]);
+      if (!del.rowCount) return res.status(404).json({ error: 'Loja não encontrada' });
+      return res.json({ message: 'Loja excluída definitivamente', mode: 'deleted' });
+    } catch (err) {
+      if (err.code !== '23503') throw err; // só trata violação de FK
+      // Possui vínculos (chamados/usuários) → desativa a loja e suspende os acessos
+      await pool.query('UPDATE stores SET is_active = FALSE, updated_at = NOW() WHERE id = $1', [id]);
+      await pool.query(
+        "UPDATE users SET is_active = FALSE, updated_at = NOW() WHERE store_id = $1 AND role = 'loja'",
+        [id]
+      );
+      return res.json({
+        message: 'Loja possui vínculos e foi desativada; os acessos da loja foram suspensos',
+        mode: 'deactivated',
+      });
+    }
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

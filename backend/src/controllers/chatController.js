@@ -114,7 +114,7 @@ const getChatUsers = async (req, res, next) => {
     const { rows } = await pool.query(`
       SELECT id, name, role, is_online, last_seen_at, avatar_url
       FROM users
-      WHERE role IN ('atendente','gestor','diretor')
+      WHERE role IN ('atendente','gestor','diretor','superadmin')
         AND is_active = TRUE
         AND id != $1
       ORDER BY is_online DESC, name ASC

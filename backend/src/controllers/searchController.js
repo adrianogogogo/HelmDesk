@@ -7,7 +7,7 @@ const search = async (req, res, next) => {
     if (!q || q.length < 2) return res.json({ results: [], message: 'Digite ao menos 2 caracteres para buscar.' });
 
     const user = req.user;
-    const internalRoles = ['atendente', 'gestor', 'diretor'];
+    const internalRoles = ['atendente', 'gestor', 'diretor', 'superadmin'];
     const term = `%${q}%`;
 
     // $1 = term (usamos o mesmo parâmetro repetidamente via $1)
@@ -65,7 +65,7 @@ const suggest = async (req, res, next) => {
     if (!q || q.length < 2) return res.json({ suggestions: [], message: 'Digite ao menos 2 caracteres para buscar.' });
 
     const user = req.user;
-    const internalRoles = ['atendente', 'gestor', 'diretor'];
+    const internalRoles = ['atendente', 'gestor', 'diretor', 'superadmin'];
     const term = `%${q}%`;
 
     const params = [term];

@@ -5,7 +5,8 @@ import {
   TextField, Switch, FormControlLabel, Tooltip, InputAdornment, Alert, Grid,
   Paper
 } from '@mui/material';
-import { Add, Edit, Store, Search, ContentCopy, CheckCircle } from '@mui/icons-material';
+import { Add, Edit, Store, Search, ContentCopy, CheckCircle, DeleteOutline } from '@mui/icons-material';
+import { useSelector } from 'react-redux';
 import { storeAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -19,8 +20,21 @@ const StoresPage = () => {
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
   const [createdLogin, setCreatedLogin] = useState(null); // {email, password, storeName}
+  const currentUser = useSelector(s => s.auth.user);
+  const canDelete = ['diretor', 'superadmin'].includes(currentUser?.role);
 
   const load = () => storeAPI.list().then(r => setStores(r.data)).catch(() => {});
+
+  const handleDelete = async (s) => {
+    if (!window.confirm(`Excluir a loja ${s.name}? Se houver vínculos (chamados/acessos), a loja será desativada e os acessos suspensos; caso contrário, removida definitivamente.`)) return;
+    try {
+      const { data } = await storeAPI.delete(s.id);
+      toast.success(data?.mode === 'deleted' ? 'Loja excluída definitivamente' : 'Loja desativada (possui vínculos)');
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Erro ao excluir loja');
+    }
+  };
 
   useEffect(() => { load(); }, []);
 
@@ -134,6 +148,13 @@ const StoresPage = () => {
                   <Tooltip title="Editar">
                     <IconButton size="small" onClick={() => openEdit(s)}><Edit fontSize="small" /></IconButton>
                   </Tooltip>
+                  {canDelete && (
+                    <Tooltip title="Excluir loja">
+                      <IconButton size="small" color="error" onClick={() => handleDelete(s)}>
+                        <DeleteOutline fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

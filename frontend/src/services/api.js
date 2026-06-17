@@ -101,6 +101,7 @@ export const storeAPI = {
   list: () => api.get('/stores'),
   create: (data) => api.post('/stores', data),
   update: (id, data) => api.patch(`/stores/${id}`, data),
+  delete: (id) => api.delete(`/stores/${id}`),
 };
 
 // Products

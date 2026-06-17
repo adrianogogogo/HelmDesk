@@ -134,7 +134,7 @@ const login = async (req, res, next) => {
   }
 };
 
-const VALID_ROLES = ['cliente', 'loja', 'atendente', 'gestor', 'diretor'];
+const VALID_ROLES = ['cliente', 'loja', 'atendente', 'gestor', 'diretor', 'superadmin'];
 
 // POST /api/auth/register (gestor/diretor cria usuários)
 const register = async (req, res, next) => {
@@ -142,8 +142,13 @@ const register = async (req, res, next) => {
     const { name, email, password, role, department_id, store_id, phone, cpf } = req.body;
 
     const creatorRole = req.user?.role;
-    if (!['gestor', 'diretor'].includes(creatorRole)) {
+    if (!['gestor', 'diretor', 'superadmin'].includes(creatorRole)) {
       return res.status(403).json({ error: 'Apenas gestores podem criar usuários' });
+    }
+
+    // Somente um superadmin pode criar outro usuário superadmin
+    if (role === 'superadmin' && creatorRole !== 'superadmin') {
+      return res.status(403).json({ error: 'Apenas um superadmin pode criar um usuário superadmin' });
     }
 
     if (role && !VALID_ROLES.includes(role)) {
