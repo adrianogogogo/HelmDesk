@@ -213,6 +213,15 @@ const NewTicketPage = () => {
     e.preventDefault();
     setError('');
     if (!form.title.trim()) { setError('Título é obrigatório'); return; }
+    if ((form.description || '').trim().length < 50) {
+      setError('A descrição detalhada é obrigatória e deve ter no mínimo 50 caracteres');
+      return;
+    }
+    const prodSemNota = form.products.findIndex(p => (p.product_name || '').trim() && !(p.invoice_number || '').trim());
+    if (prodSemNota !== -1) {
+      setError(`Informe o número da nota fiscal do Produto ${prodSemNota + 1}`);
+      return;
+    }
     setLoading(true);
     try {
       const payload = {
@@ -307,11 +316,13 @@ const NewTicketPage = () => {
               </Grid>
               <Grid item xs={12}>
                 <TextField
-                  fullWidth multiline rows={4} size="small"
-                  label="Descrição detalhada"
+                  fullWidth required multiline rows={4} size="small"
+                  label="Descrição detalhada *"
                   placeholder="Descreva o problema com detalhes: o que acontece, quando ocorreu, impacto..."
                   value={form.description}
                   onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                  error={form.description.trim().length > 0 && form.description.trim().length < 50}
+                  helperText={`Obrigatório — mínimo de 50 caracteres (${form.description.trim().length}/50)`}
                 />
               </Grid>
             </Grid>
@@ -473,9 +484,11 @@ const NewTicketPage = () => {
                       onChange={e => updateProduct(idx, 'serial_number', e.target.value)} />
                   </Grid>
                   <Grid item xs={12} sm={4}>
-                    <TextField fullWidth size="small" label="Nota fiscal"
+                    <TextField fullWidth size="small" label="Nota fiscal *"
                       value={prod.invoice_number}
-                      onChange={e => updateProduct(idx, 'invoice_number', e.target.value)} />
+                      onChange={e => updateProduct(idx, 'invoice_number', e.target.value)}
+                      error={!!(prod.product_name || '').trim() && !(prod.invoice_number || '').trim()}
+                      helperText={(prod.product_name || '').trim() && !(prod.invoice_number || '').trim() ? 'Obrigatória' : ''} />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField fullWidth size="small" label="Data de compra" type="date"
