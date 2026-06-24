@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 
-const VALID_PRIORITIES = ['low', 'normal', 'high', 'critical'];
+const VALID_PRIORITIES = ['normal', 'high'];
 
 const sanitizeText = (str) => {
   if (typeof str !== 'string') return str;
@@ -216,7 +216,7 @@ const createTicket = async (req, res, next) => {
       return res.status(400).json({ error: 'Informe o número da nota fiscal dos produtos preenchidos' });
     }
 
-    const VALID_PRIORITIES = ['low', 'normal', 'high', 'critical'];
+    const VALID_PRIORITIES = ['normal', 'high'];
     if (priority && !VALID_PRIORITIES.includes(priority)) {
       return res.status(400).json({ error: `Prioridade inválida. Valores permitidos: ${VALID_PRIORITIES.join(', ')}` });
     }
@@ -627,7 +627,7 @@ const approveSolution = async (req, res, next) => {
           // Criar tarefa para o diretor
           await pool.query(`
             INSERT INTO tasks (title, description, ticket_id, assigned_to, created_by, status, priority)
-            VALUES ($1,$2,$3,$4,$5,'pendente','urgent')
+            VALUES ($1,$2,$3,$4,$5,'pendente','high')
           `, [
             `🔐 Confirmar autorização — ${typeLabel} | Ticket #${ticketNumber}`,
             `Gestor ${user.name} aprovou. Aguarda confirmação do diretor para prosseguir.`,

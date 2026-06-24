@@ -357,10 +357,8 @@ const TaskDialog = ({ open, onClose, ticketId, users, onSuccess }) => {
               <InputLabel>Prioridade</InputLabel>
               <Select value={form.priority} label="Prioridade"
                 onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
-                <MenuItem value="low">🔵 Baixa</MenuItem>
                 <MenuItem value="normal">⚪ Normal</MenuItem>
                 <MenuItem value="high">🟠 Alta</MenuItem>
-                <MenuItem value="urgent">🔴 Urgente</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -422,7 +420,7 @@ const EmailReportTab = ({ ticket }) => {
     lines.push(`Ticket:    #${ticket.ticket_number}`);
     lines.push(`Assunto:   ${ticket.title}`);
     lines.push(`Status:    ${ticket.status_name}`);
-    lines.push(`Prioridade:${ticket.priority === 'urgent' ? ' Urgente' : ticket.priority === 'high' ? ' Alta' : ticket.priority === 'low' ? ' Baixa' : ' Normal'}`);
+    lines.push(`Prioridade:${ticket.priority === 'high' ? ' Alta' : ' Normal'}`);
     lines.push(`Marca:     ${ticket.brand_name || '—'}`);
     lines.push(`Tipo:      ${ticket.issue_type_name || '—'}${ticket.issue_subtype_name ? ' / ' + ticket.issue_subtype_name : ''}`);
     lines.push(``);
@@ -745,9 +743,7 @@ const TicketDetailPage = () => {
             <Chip label={ticket.status_name} size="small"
               sx={{ bgcolor: (ticket.status_color || '#666') + '20', color: ticket.status_color || '#666', fontWeight: 700 }} />
             <Chip label={
-              ticket.priority === 'urgent' ? '🔴 Urgente' :
-              ticket.priority === 'high' ? '🟠 Alta' :
-              ticket.priority === 'low' ? '🔵 Baixa' : '⚪ Normal'
+              ticket.priority === 'high' ? '🟠 Alta' : '⚪ Normal'
             } size="small" variant="outlined" />
             {ticket.brand_name && <Chip label={ticket.brand_name} size="small" variant="outlined" />}
           </Box>

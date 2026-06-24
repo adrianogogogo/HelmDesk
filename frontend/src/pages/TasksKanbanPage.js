@@ -33,10 +33,8 @@ const COLUMNS = [
 ];
 
 const PRIORITIES = {
-  urgent: { label: 'Urgente', color: '#F44336', bg: '#FFEBEE' },
   high:   { label: 'Alta',    color: '#FF9800', bg: '#FFF3E0' },
   normal: { label: 'Normal',  color: '#2196F3', bg: '#E3F2FD' },
-  low:    { label: 'Baixa',   color: '#9E9E9E', bg: '#F5F5F5' },
 };
 
 // ─── Card individual (sortable) ───────────────────────────────
@@ -594,10 +592,8 @@ const TasksKanbanPage = () => {
                   <InputLabel>Prioridade</InputLabel>
                   <Select value={form.priority} label="Prioridade"
                     onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
-                    <MenuItem value="low">🔵 Baixa</MenuItem>
                     <MenuItem value="normal">🟢 Normal</MenuItem>
                     <MenuItem value="high">🟠 Alta</MenuItem>
-                    <MenuItem value="urgent">🔴 Urgente</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

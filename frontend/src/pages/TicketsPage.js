@@ -13,10 +13,8 @@ import { setTickets } from '../store/slices/ticketSlice';
 import { format } from 'date-fns';
 
 const PRIORITIES = {
-  urgent: { label: 'Urgente', color: '#F44336' },
   high:   { label: 'Alta',    color: '#FF9800' },
   normal: { label: 'Normal',  color: '#2196F3' },
-  low:    { label: 'Baixa',   color: '#9E9E9E' },
 };
 
 // IDs dos status considerados "finalizados" (excluídos no filtro "Ativos")

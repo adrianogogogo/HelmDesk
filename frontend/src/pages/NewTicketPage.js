@@ -307,10 +307,8 @@ const NewTicketPage = () => {
                   <InputLabel>Prioridade</InputLabel>
                   <Select value={form.priority} label="Prioridade"
                     onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
-                    <MenuItem value="low">🔵 Baixa</MenuItem>
                     <MenuItem value="normal">🟢 Normal</MenuItem>
                     <MenuItem value="high">🟠 Alta</MenuItem>
-                    <MenuItem value="urgent">🔴 Urgente</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
