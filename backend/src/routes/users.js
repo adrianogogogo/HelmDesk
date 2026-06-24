@@ -5,8 +5,8 @@ const pool = require('../config/database');
 const { authenticate, authorize } = require('../middlewares/auth');
 const { register } = require('../controllers/authController');
 
-// GET /api/users — atendente pode listar para filtros; gestor/diretor têm acesso completo
-router.get('/', authenticate, authorize('atendente', 'gestor', 'diretor'), async (req, res, next) => {
+// GET /api/users — atendente pode listar para filtros; gestor/diretor/superadmin têm acesso completo
+router.get('/', authenticate, authorize('atendente', 'gestor', 'diretor', 'superadmin'), async (req, res, next) => {
   try {
     const { rows } = await pool.query(`
       SELECT u.id, u.name, u.email, u.role, u.phone, u.is_active, u.created_at,

@@ -124,7 +124,7 @@ const StatusUpdateDialog = ({ open, onClose, ticket, onSuccess }) => {
   useEffect(() => {
     if (open) {
       setForm({ status_id: ticket?.status_id || 1, ball_owner_id: user?.id || '', note: '', is_internal: true });
-      userAPI.list().then(r => setUsers(r.data.filter(u => ['atendente','gestor','diretor'].includes(u.role)))).catch(() => {});
+      userAPI.list().then(r => setUsers(r.data.filter(u => ['atendente','gestor','diretor','superadmin'].includes(u.role)))).catch(() => {});
     }
   }, [open, ticket, user]);
 
@@ -667,7 +667,7 @@ const TicketDetailPage = () => {
   // RejectDialog state — substitui window.prompt para evitar aria-hidden warning
   const [rejectDialog, setRejectDialog] = useState({ open: false, solutionId: null, isDirector: false });
 
-  const internalRoles = ['atendente', 'gestor', 'diretor'];
+  const internalRoles = ['atendente', 'gestor', 'diretor', 'superadmin'];
   const canEdit = internalRoles.includes(user?.role);
 
   const loadTicket = async () => {
