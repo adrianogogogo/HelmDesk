@@ -727,8 +727,8 @@ const TicketDetailPage = () => {
   const pendingSolutions = ticket.solutions?.filter(s => s.status === 'pendente') || [];
   // Soluções que o usuário atual precisa autorizar agora
   const myPendingActions = pendingSolutions.filter(s =>
-    (s.authorization_level === 'gestor' && ['gestor','diretor'].includes(user?.role)) ||
-    (s.authorization_level === 'diretor' && user?.role === 'diretor')
+    (s.authorization_level === 'gestor' && ['gestor','diretor','superadmin'].includes(user?.role)) ||
+    (s.authorization_level === 'diretor' && ['diretor','superadmin'].includes(user?.role))
   );
   const awaitingDirectorCount = pendingSolutions.filter(s => s.authorization_level === 'diretor').length;
 
@@ -881,8 +881,8 @@ const TicketDetailPage = () => {
                       const typeLabel = SOLUTION_TYPES.find(t => t.value === sol.solution_type)?.label || sol.solution_type;
                       const isAwaitingGestor  = sol.status === 'pendente' && sol.authorization_level === 'gestor';
                       const isAwaitingDirector = sol.status === 'pendente' && sol.authorization_level === 'diretor';
-                      const canActAsGestor  = isAwaitingGestor  && ['gestor','diretor'].includes(user?.role);
-                      const canActAsDirector = isAwaitingDirector && user?.role === 'diretor';
+                      const canActAsGestor  = isAwaitingGestor  && ['gestor','diretor','superadmin'].includes(user?.role);
+                      const canActAsDirector = isAwaitingDirector && ['diretor','superadmin'].includes(user?.role);
                       const borderColor = sol.status === 'aprovado' ? 'success.main'
                                         : sol.status === 'reprovado' ? 'error.main'
                                         : isAwaitingDirector ? 'warning.main' : 'divider';

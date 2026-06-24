@@ -259,7 +259,7 @@ const TasksKanbanPage = () => {
   const navigate = useNavigate();
   const { kanban } = useSelector(s => s.tasks);
   const { user } = useSelector(s => s.auth);
-  const isAdmin = user?.role === 'diretor';
+  const isAdmin = ['diretor', 'superadmin'].includes(user?.role);
 
   const [users, setUsers] = useState([]);
   const [dialog, setDialog] = useState(false);
@@ -297,7 +297,7 @@ const TasksKanbanPage = () => {
   useEffect(() => {
     loadKanban();
     userAPI.list()
-      .then(r => setUsers(r.data.filter(u => ['atendente', 'gestor', 'diretor'].includes(u.role))))
+      .then(r => setUsers(r.data.filter(u => ['atendente', 'gestor', 'diretor', 'superadmin'].includes(u.role))))
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

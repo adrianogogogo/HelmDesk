@@ -90,7 +90,7 @@ const AddClientDialog = ({ open, onClose, onSaved }) => {
 
 const ClientsPage = () => {
   const { user } = useSelector(s => s.auth);
-  const canAdd = ['atendente', 'gestor', 'diretor'].includes(user?.role);
+  const canAdd = ['atendente', 'gestor', 'diretor', 'superadmin'].includes(user?.role);
 
   const [clients, setClients] = useState([]);
   const [search, setSearch] = useState('');

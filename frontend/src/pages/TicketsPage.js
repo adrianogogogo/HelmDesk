@@ -78,9 +78,9 @@ const TicketsPage = () => {
   useEffect(() => {
     ticketAPI.getStatuses().then(r => setStatuses(r.data)).catch(() => {});
     brandAPI.list().then(r => setBrands(r.data)).catch(() => {});
-    if (['atendente', 'gestor', 'diretor'].includes(user?.role)) {
+    if (['atendente', 'gestor', 'diretor', 'superadmin'].includes(user?.role)) {
       userAPI.list().then(r =>
-        setInternalUsers(r.data.filter(u => ['atendente', 'gestor', 'diretor'].includes(u.role)))
+        setInternalUsers(r.data.filter(u => ['atendente', 'gestor', 'diretor', 'superadmin'].includes(u.role)))
       ).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,7 +182,7 @@ const TicketsPage = () => {
                 </Select>
               </FormControl>
             </Grid>
-            {['atendente','gestor','diretor'].includes(user?.role) && (
+            {['atendente','gestor','diretor','superadmin'].includes(user?.role) && (
               <Grid item xs={6} md={2}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Responsável ⚽</InputLabel>

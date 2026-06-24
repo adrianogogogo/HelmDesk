@@ -115,7 +115,7 @@ const TopBar = () => {
   const { darkMode } = useSelector(s => s.ui);
   const { list: notifList, unread } = useSelector(s => s.notifications);
   const { unreadTotal: chatUnread } = useSelector(s => s.chat);
-  const internalRoles = ['atendente', 'gestor', 'diretor'];
+  const internalRoles = ['atendente', 'gestor', 'diretor', 'superadmin'];
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifAnchor, setNotifAnchor] = useState(null);
