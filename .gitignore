@@ -17,3 +17,4 @@ frontend/core
 # Scripts operacionais com credenciais — NÃO versionar
 scripts/ssh_check.py
 scripts/vps_deploy.py
+scripts/vps_sftp_deploy.py
