@@ -68,6 +68,28 @@ const ProductsPage = () => {
     }
   };
 
+  const downloadTemplate = () => {
+    const headers = ['Nome', 'Descrição', 'Marca', 'Tipo', 'SKU', 'Modelo', 'Ano', 'System ID', 'Korp ID'];
+    const rows = [
+      ['Pneu Goodyear Eagle F1', 'Pneu de alta performance para estrada', 'Goodyear', 'Pneu', 'SKU-GDYR-F1-001', 'Eagle F1 Road', '2024', 'SYS-GDYR-01', 'KRP-GDYR-01'],
+      ['Bicicleta Corratec C-Time', 'Bicicleta de contra-relógio premium', 'Corratec', 'Bicicleta', 'SKU-CORR-CT-002', 'C-Time Carbon', '2025', 'SYS-CORR-02', 'KRP-CORR-02']
+    ];
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map(r => r.map(val => `"${val.replace(/"/g, '""')}"`).join(';'))
+    ].join('\n');
+    
+    // Adiciona o BOM (\uFEFF) para garantir que acentos abram corretamente no Excel brasileiro
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "modelo_importacao_produtos.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   useEffect(() => { load(); }, []);
 
   const filtered = products.filter(p =>
@@ -221,6 +243,16 @@ const ProductsPage = () => {
             Selecione uma planilha <strong>.csv</strong> com as seguintes colunas obrigatórias ou opcionais:
             <br />
             <code>Nome, Descrição, Marca, Tipo, SKU, Modelo, Ano, System ID, Korp ID</code>
+            <br />
+            <Button 
+              variant="text" 
+              size="small" 
+              onClick={downloadTemplate} 
+              sx={{ mt: 1.5, p: 0, textTransform: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}
+              disabled={importing}
+            >
+              📥 Baixar planilha modelo (.csv)
+            </Button>
           </Typography>
           
           <Grid container spacing={2}>
