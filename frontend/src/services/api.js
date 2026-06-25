@@ -109,6 +109,9 @@ export const productAPI = {
   list: (params) => api.get('/products', { params }),
   create: (data) => api.post('/products', data),
   update: (id, data) => api.patch(`/products/${id}`, data),
+  importCSV: (formData) => api.post('/products/import-csv', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
 };
 
 // Brands

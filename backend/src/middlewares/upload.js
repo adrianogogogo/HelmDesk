@@ -29,7 +29,8 @@ const fileFilter = (req, file, cb) => {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain', 'video/mp4', 'video/quicktime'
+    'text/plain', 'video/mp4', 'video/quicktime',
+    'text/csv'
   ];
   if (allowed.includes(file.mimetype)) {
     cb(null, true);
